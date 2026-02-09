@@ -5,7 +5,9 @@ import argparse
 import os
 from dotenv import load_dotenv
 
-DEFAULT_GRAPH = "rsrp"
+DEFAULT_GRAPH = "rsrp,rsrq,pci"
+
+GRAPH_OPTIONS = ["rsrp", "rsrq", "pci"]
 
 script_dir = Path(__file__).resolve().parent
 
@@ -36,22 +38,49 @@ dtype_map_dataset_22 = {
 }
 
 
-def plot_rsrp(df: pd.DataFrame):
+def plot_kpi(df: pd.DataFrame, graph_name: str):
 
-    plot_df = df.dropna(subset=["latitude", "longitude", "altitude", "rsrp"])  # type: ignore
+    plot_df = df.dropna(subset=["latitude", "longitude", "altitude", graph_name])  # type: ignore
 
     fig = px.scatter_3d(  # type: ignore
         plot_df,
         x="longitude",
         y="latitude",
         z="altitude",
-        color="rsrp",
+        color=graph_name,
         color_continuous_scale="Viridis",
-        title="3D Spatial Distribution of RSRP Signal Strength",
+        title=f"3D Spatial Distribution of {graph_name.upper()}",
         hover_data=["technology", "bands", "pci"],
     )
 
     fig.update_traces(marker=dict(size=3))  # type: ignore
+
+    fig.show()  # type: ignore
+
+
+def plot_pci(df: pd.DataFrame):
+    """
+    Plots the Physical Cell Identity (PCI) as discrete clusters.
+    Helps visualize cell dominance and handover zones.
+    """
+    plot_df = df.dropna(subset=["latitude", "longitude", "altitude", "pci"])  # type: ignore
+
+    plot_df["pci_str"] = plot_df["pci"].astype(str)
+
+    fig = px.scatter_3d(  # type: ignore
+        plot_df,
+        x="longitude",
+        y="latitude",
+        z="altitude",
+        color="pci_str",
+        title="3D Spatial Distribution of Physical Cell IDs (PCI)",
+        hover_data=["technology", "bands", "rsrp"],
+    )
+
+    fig.update_traces(marker=dict(size=3))  # type: ignore
+
+    if len(plot_df["pci"].unique()) > 20:
+        fig.update_layout(showlegend=False)  # type: ignore
 
     fig.show()  # type: ignore
 
@@ -65,9 +94,20 @@ if __name__ == "__main__":
         "--graph-name",
         type=str,
         default=DEFAULT_GRAPH,
-        help="Graph name. Default is " + DEFAULT_GRAPH,
+        help="Graph name(s). Format is 'name1,name2,...' Default is "
+        + DEFAULT_GRAPH
+        + ".",
     )
     options = parser.parse_args()
+
+    graph_list: list[str] = str(options.graph_name).split(",")
+
+    for graph_name in graph_list:
+        if graph_name not in GRAPH_OPTIONS:
+            print(
+                f"Graph name provided is not an option, graph name: {graph_name}, graph options: {GRAPH_OPTIONS}"
+            )
+            exit()
 
     load_dotenv(script_dir / "../config.env")
 
@@ -87,5 +127,8 @@ if __name__ == "__main__":
         engine="pyarrow",
     )
 
-    if options.graph_name == "rsrp":
-        plot_rsrp(df)
+    for graph_name in graph_list:
+        if graph_name in ["rsrp", "rsrq"]:
+            plot_kpi(df, graph_name)
+        if graph_name == "pci":
+            plot_pci(df)
