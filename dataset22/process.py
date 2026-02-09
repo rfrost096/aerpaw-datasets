@@ -87,7 +87,7 @@ def plot_pci(df: pd.DataFrame):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Generate KML file of the specified KPI and cell PCI"
+        description="Create interesting graph to explore dataset features."
     )
     parser.add_argument(
         "-g",
