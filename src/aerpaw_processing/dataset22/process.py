@@ -4,7 +4,7 @@ import plotly.graph_objects as go  # type: ignore
 import argparse
 import os
 from dotenv import load_dotenv, find_dotenv
-from aerpaw_processing.tower_locations import Tower, towers
+from aerpaw_processing.tower_locations import Tower, towers  # type: ignore
 
 DEFAULT_GRAPH = "rsrp,rsrq,pci"
 
@@ -82,9 +82,7 @@ def plot_pci(df: pd.DataFrame, towers: list[Tower] | None = None):
         tower_names = [t.name for t in towers]
         tower_lons = [t.lon for t in towers]
         tower_lats = [t.lat for t in towers]
-
-        ground_altitude = plot_df["altitude"].min() if not plot_df.empty else 0
-        tower_alts = [ground_altitude] * len(towers)
+        tower_alts = [t.alt for t in towers]
 
         fig.add_trace(  # type: ignore
             go.Scatter3d(
