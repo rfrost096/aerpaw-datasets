@@ -1,3 +1,3 @@
 [submodule "Dataset22PostProcessing"]
-	path = KMLPostProcessing
+	path = src/aerpaw_processing/KMLPostProcessing
 	url = git@github.com:rfrost096/Dataset22PostProcessing.git

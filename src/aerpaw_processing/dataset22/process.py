@@ -1,15 +1,16 @@
 import pandas as pd
-from pathlib import Path
 import plotly.express as px  # type: ignore
+import plotly.graph_objects as go  # type: ignore
 import argparse
 import os
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
+from aerpaw_processing.tower_locations import Tower, towers
 
 DEFAULT_GRAPH = "rsrp,rsrq,pci"
 
 GRAPH_OPTIONS = ["rsrp", "rsrq", "pci"]
 
-script_dir = Path(__file__).resolve().parent
+load_dotenv(find_dotenv("config.env"))
 
 dtype_map_dataset_22 = {
     "technology": "category",
@@ -58,7 +59,7 @@ def plot_kpi(df: pd.DataFrame, graph_name: str):
     fig.show()  # type: ignore
 
 
-def plot_pci(df: pd.DataFrame):
+def plot_pci(df: pd.DataFrame, towers: list[Tower] | None = None):
     """
     Plots the Physical Cell Identity (PCI) as discrete clusters.
     Helps visualize cell dominance and handover zones.
@@ -76,6 +77,28 @@ def plot_pci(df: pd.DataFrame):
         title="3D Spatial Distribution of Physical Cell IDs (PCI)",
         hover_data=["technology", "bands", "rsrp"],
     )
+
+    if towers is not None:
+        tower_names = [t.name for t in towers]
+        tower_lons = [t.origin_x for t in towers]
+        tower_lats = [t.origin_y for t in towers]
+
+        ground_altitude = plot_df["altitude"].min() if not plot_df.empty else 0
+        tower_alts = [ground_altitude] * len(towers)
+
+        fig.add_trace(  # type: ignore
+            go.Scatter3d(
+                x=tower_lons,
+                y=tower_lats,
+                z=tower_alts,
+                mode="markers+text",
+                marker=dict(size=8, color="black", symbol="diamond"),
+                text=tower_names,
+                textposition="top center",
+                name="Cell Towers",
+                hoverinfo="text+x+y",
+            )
+        )
 
     fig.update_traces(marker=dict(size=3))  # type: ignore
 
@@ -109,8 +132,6 @@ if __name__ == "__main__":
             )
             exit()
 
-    load_dotenv(script_dir / "../config.env")
-
     data_path = (
         str(os.getenv("DATASET_22_HOME"))
         + "/"
@@ -131,4 +152,4 @@ if __name__ == "__main__":
         if graph_name in ["rsrp", "rsrq"]:
             plot_kpi(df, graph_name)
         if graph_name == "pci":
-            plot_pci(df)
+            plot_pci(df, towers)

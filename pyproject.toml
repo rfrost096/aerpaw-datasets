@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aerpaw_processing"
+version = "0.0.1"
+authors = [
+  { name="Ryan Frost", email="rfrost096@gmail.com" },
+]
+description = "AERPAW processing scripts"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pandas",
+    "plotly",
+    "python-dotenv",
+    "pyarrow",
+    "numpy",
+    "matplotlib",
+    "scipy",
+    "simplekml",
+    "pyproj",
+    "toml"
+]
+
+[project.scripts]
+generate-kml = "aerpaw_processing.KMLPostProcessing.generate_kpi_kml:main"
