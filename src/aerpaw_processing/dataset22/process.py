@@ -80,8 +80,8 @@ def plot_pci(df: pd.DataFrame, towers: list[Tower] | None = None):
 
     if towers is not None:
         tower_names = [t.name for t in towers]
-        tower_lons = [t.origin_x for t in towers]
-        tower_lats = [t.origin_y for t in towers]
+        tower_lons = [t.lon for t in towers]
+        tower_lats = [t.lat for t in towers]
 
         ground_altitude = plot_df["altitude"].min() if not plot_df.empty else 0
         tower_alts = [ground_altitude] * len(towers)

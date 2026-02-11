@@ -4,8 +4,8 @@ from dataclasses import dataclass
 @dataclass
 class Tower:
     name: str
-    origin_x: float
-    origin_y: float
+    lon: float
+    lat: float
 
 
 towers = [
