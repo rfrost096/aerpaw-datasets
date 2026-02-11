@@ -108,7 +108,7 @@ def plot_pci(df: pd.DataFrame, towers: list[Tower] | None = None):
     fig.show()  # type: ignore
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(
         description="Create interesting graph to explore dataset features."
     )
@@ -153,3 +153,7 @@ if __name__ == "__main__":
             plot_kpi(df, graph_name)
         if graph_name == "pci":
             plot_pci(df, towers)
+
+
+if __name__ == "__main__":
+    main()
