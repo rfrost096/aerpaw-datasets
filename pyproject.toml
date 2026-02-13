@@ -26,3 +26,4 @@ dependencies = [
 
 [project.scripts]
 generate-kml = "aerpaw_processing.KMLPostProcessing.generate_kpi_kml:main"
+generate-graphs = "aerpaw_processing.process:main"
