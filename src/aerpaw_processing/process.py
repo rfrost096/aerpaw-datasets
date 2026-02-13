@@ -13,22 +13,43 @@ GRAPH_OPTIONS = ["pci"]
 
 load_dotenv(find_dotenv("config.env"))
 
-def combine_datasets(path_map: dict[str, pd.DataFrame], graph_name: str, fields: list[str]):
+def combine_datasets(path_map: dict[str, pd.DataFrame], graph_name: str, fields: list[str], cap_mode: bool = False, alt_mode: bool = True):
     processed_dfs: list[pd.DataFrame] = []
 
     for file_path, df in path_map.items():
         for field in fields:
             if field not in df.keys():
-                print(f"Error: Graph '{graph_name}' requires field '{field}'")
-                return
+
+                if field.upper() in df.keys():
+                    df[field] = df[field.upper()]
+                elif field.capitalize() in df.keys():
+                    df[field] = df[field.capitalize()]
+                else:
+                    print(f"Error: Graph '{graph_name}' requires field '{field}'")
+                    return
 
         
         plot_df = df.dropna(subset=fields).copy()  # type: ignore
 
-        # p10 = plot_df[graph_name].quantile(0.10)
-        # p90 = plot_df[graph_name].quantile(0.90)
+        if cap_mode:
+            p_lower = plot_df[graph_name].quantile(0.10)
+            p_upper = plot_df[graph_name].quantile(0.90)
 
-        # plot_df[graph_name] = plot_df[graph_name].clip(lower=p10, upper=p90)
+            plot_df[graph_name] = plot_df[graph_name].clip(lower=p_lower, upper=p_upper)
+        
+        if alt_mode:
+            if "altitude" not in fields:
+                print("Altitude data not included")
+            else:
+                median_alt = plot_df["altitude"].median()
+                mad = (plot_df["altitude"] - median_alt).abs().median()
+
+                multiplier = 4.0 
+
+                lower_bound = median_alt - (multiplier * mad)
+                upper_bound = median_alt + (multiplier * mad)
+
+                plot_df = plot_df[(plot_df["altitude"] >= lower_bound) & (plot_df["altitude"] <= upper_bound)]
 
         plot_df["dataset_file"] = file_path.split("/")[-1]
         
@@ -39,8 +60,8 @@ def combine_datasets(path_map: dict[str, pd.DataFrame], graph_name: str, fields:
     return combined_df
 
 
-def plot_kpi(path_map: dict[str, pd.DataFrame], graph_name: str):
-    combined_df = combine_datasets(path_map, graph_name, ["latitude", "longitude", "altitude", graph_name])
+def plot_kpi(path_map: dict[str, pd.DataFrame], graph_name: str, cap_mode: bool, alt_mode: bool):
+    combined_df = combine_datasets(path_map, graph_name, ["latitude", "longitude", "altitude", graph_name], cap_mode, alt_mode)
 
     if combined_df is None:
         return
@@ -53,7 +74,7 @@ def plot_kpi(path_map: dict[str, pd.DataFrame], graph_name: str):
         color=graph_name,
         color_continuous_scale="Viridis",
         title=f"3D Spatial Distribution of {graph_name.upper()}",
-        hover_data=["technology", "bands", "pci", "dataset_file"], 
+        hover_data=["dataset_file"], 
     )
 
     fig.update_traces(marker=dict(size=3))  # type: ignore
@@ -154,6 +175,18 @@ def main():
         help="Graph KPI mode, graph_name can be any column name in dataset."
     )
     parser.add_argument(
+        "-c",
+        "--cap",
+        action='store_true',
+        help="Cap the dataset to the 10th - 90th percentile."
+    )
+    parser.add_argument(
+        "-a",
+        "--alt",
+        action='store_true',
+        help="Only graph data points around the median altitude."
+    )
+    parser.add_argument(
         "-g",
         "--graph-name",
         type=str,
@@ -168,6 +201,8 @@ def main():
     dataset_num: int = int(options.dataset)
     filenames: list[str] = str(options.filenames).split(",")
     kpi_mode: bool = options.kpi
+    cap_mode: bool = options.cap
+    alt_mode: bool = options.alt
 
     for graph_name in graph_list:
         if not kpi_mode and graph_name not in GRAPH_OPTIONS:
@@ -191,7 +226,7 @@ def main():
 
     for graph_name in graph_list:
         if kpi_mode:
-            plot_kpi(path_map, graph_name)
+            plot_kpi(path_map, graph_name, cap_mode, alt_mode)
         else:
             if graph_name == "pci":
                 plot_pci(path_map, towers)
