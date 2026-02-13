@@ -2,9 +2,11 @@
 
 #!/bin/bash
 
-if [ -f config.env ]; then
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
+
+if [ -f "$SCRIPT_DIR/../config.env" ]; then
     set -a
-    source config.env
+    source "$SCRIPT_DIR/../config.env"
     set +a
 else
     echo "Error: config.env not found."
