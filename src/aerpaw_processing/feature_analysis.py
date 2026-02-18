@@ -6,7 +6,7 @@ from aerpaw_processing.utils import combine_datasets, find_file
 DEFAULT_GRAPH = "pearson"
 
 
-def graph_pearson(combined_data: pd.DataFrame):
+def graph_feature(combined_data: pd.DataFrame, graph_name: str):
     working_data = combined_data.copy()
 
     x = working_data.drop(columns=["rsrp"])
@@ -14,22 +14,16 @@ def graph_pearson(combined_data: pd.DataFrame):
 
     y = working_data["rsrp"]
 
-    visualizer = FeatureCorrelation(labels=x.columns)
+    visualizer: FeatureCorrelation
 
-    visualizer.fit(x, y)
-
-    visualizer.show()
-
-
-def graph_mutual(combined_data: pd.DataFrame):
-    working_data = combined_data.copy()
-
-    x = working_data.drop(columns=["rsrp"])
-    x = x.select_dtypes(include=["number"])
-
-    y = working_data["rsrp"]
-
-    visualizer = FeatureCorrelation(method="mutual_info-regression", labels=x.columns)
+    if graph_name == "pearson":
+        visualizer = FeatureCorrelation(labels=x.columns)
+    elif graph_name == "mutual":
+        visualizer = FeatureCorrelation(
+            method="mutual_info-regression", labels=x.columns
+        )
+    else:
+        return
 
     visualizer.fit(x, y)
 
@@ -105,10 +99,8 @@ def main():
     if combined_data is None:
         return
 
-    if graph_name == "pearson":
-        graph_pearson(combined_data)
-    elif graph_name == "mutual":
-        graph_mutual(combined_data)
+    if graph_name in ["pearson", "mutual"]:
+        graph_feature(combined_data, graph_name)
     else:
         print(f"graph_name '{graph_name}' not implemented")
 

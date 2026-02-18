@@ -135,7 +135,7 @@ plt.ylim([-60, 0])
 # 3D Scatter Plot of RSS1
 fig = plt.figure(7)
 ax = fig.add_subplot(111, projection="3d")
-sc = ax.scatter(mX, mY, mZ, c=RSS1, cmap="jet", s=10)
+sc = ax.scatter(mX, mY, mZ, c=RSS1, cmap="jet", s=10)  # type: ignore
 plt.colorbar(sc)
 ax.set_xlabel("Longitude")
 ax.set_ylabel("Latitude")
@@ -148,7 +148,7 @@ plt.title("RSS1 (dB)")
 # 3D Scatter Plot of RSS2
 fig = plt.figure(8)
 ax = fig.add_subplot(111, projection="3d")
-sc = ax.scatter(mX, mY, mZ, c=RSS2, cmap="jet", s=10)
+sc = ax.scatter(mX, mY, mZ, c=RSS2, cmap="jet", s=10)  # type: ignore
 plt.colorbar(sc)
 ax.set_xlabel("Longitude")
 ax.set_ylabel("Latitude")
