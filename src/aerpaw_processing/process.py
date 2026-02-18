@@ -175,40 +175,8 @@ def plot_kpi_temporal(
 
     time_col = RELATIVE_TIME_PREFIX + time_col
 
-    t_min, t_max = time_df[time_col].min(), time_df[time_col].max()
-
-    relative = True
-
-    bin_edges: pd.TimedeltaIndex | pd.DatetimeIndex
-    bin_labels: list[str]
-
-    if relative:
-        bin_edges = pd.timedelta_range(t_min, t_max, periods=n_bins + 1)
-        bin_labels = [
-            f"{round(bin_edges[i].total_seconds())}s - {round(bin_edges[i+1].total_seconds())}s"
-            for i in range(n_bins)
-        ]
-
-    else:
-        bin_edges = pd.date_range(t_min, t_max, periods=n_bins + 1)
-        bin_labels = [
-            f"{bin_edges[i].strftime('%H:%M:%S')}–{bin_edges[i+1].strftime('%H:%M:%S')}"
-            for i in range(n_bins)
-        ]
-
-    time_df["time_bin"] = pd.cut(  # type: ignore
-        time_df[time_col], bins=bin_edges, labels=bin_labels, include_lowest=True  # type: ignore
-    )
-
-    time_df = time_df.dropna(subset=["time_bin"])  # type: ignore
-    time_df["time_bin"] = time_df["time_bin"].astype(str)
-    frame_order = (
-        time_df.drop_duplicates("time_bin").sort_values(time_col)["time_bin"].tolist()
-    )
-    time_df["time_bin"] = pd.Categorical(
-        time_df["time_bin"], categories=frame_order, ordered=True
-    )
-    time_df = time_df.sort_values("time_bin")
+    x_range = [time_df["longitude"].min(), time_df["longitude"].max()]
+    y_range = [time_df["latitude"].min(), time_df["latitude"].max()]
 
     c_min = float(time_df[graph_name].min())
     c_max = float(time_df[graph_name].max())
@@ -217,29 +185,89 @@ def plot_kpi_temporal(
         z_axis = time_col
         z_label = "Time"
         hover_extras = ["dataset_file", "altitude"]
+
+        z_range = [time_df[z_axis].min(), time_df[z_axis].max()]
+
+        fig = px.scatter_3d(  # type: ignore
+            time_df,
+            x="longitude",
+            y="latitude",
+            z=z_axis,
+            color=graph_name,
+            color_continuous_scale="Viridis",
+            range_color=[c_min, c_max],
+            range_x=x_range,
+            range_y=y_range,
+            range_z=z_range,
+            title=f"Spatial-Temporal Distribution of {graph_name.upper()}",
+            hover_data=hover_extras,
+            labels={"z": z_label},
+        )
     else:
         z_axis = "altitude"
         z_label = "Altitude"
         hover_extras = ["dataset_file", time_col]
 
-    fig = px.scatter_3d(  # type: ignore
-        time_df,
-        x="longitude",
-        y="latitude",
-        z=z_axis,
-        color=graph_name,
-        animation_frame="time_bin",
-        color_continuous_scale="Viridis",
-        range_color=[c_min, c_max],
-        title=f"Spatial-Temporal Distribution of {graph_name.upper()} ({n_bins} time bins)",
-        hover_data=hover_extras,
-        labels={"z": z_label},
-    )
+        z_range = [time_df[z_axis].min(), time_df[z_axis].max()]
+
+        t_min, t_max = time_df[time_col].min(), time_df[time_col].max()
+
+        relative = True
+
+        bin_edges: pd.TimedeltaIndex | pd.DatetimeIndex
+        bin_labels: list[str]
+
+        if relative:
+            bin_edges = pd.timedelta_range(t_min, t_max, periods=n_bins + 1)
+            bin_labels = [
+                f"{round(bin_edges[i].total_seconds())}s - {round(bin_edges[i+1].total_seconds())}s"
+                for i in range(n_bins)
+            ]
+
+        else:
+            bin_edges = pd.date_range(t_min, t_max, periods=n_bins + 1)
+            bin_labels = [
+                f"{bin_edges[i].strftime('%H:%M:%S')}–{bin_edges[i+1].strftime('%H:%M:%S')}"
+                for i in range(n_bins)
+            ]
+
+        time_df["time_bin"] = pd.cut(  # type: ignore
+            time_df[time_col], bins=bin_edges, labels=bin_labels, include_lowest=True  # type: ignore
+        )
+
+        time_df = time_df.dropna(subset=["time_bin"])  # type: ignore
+        time_df["time_bin"] = time_df["time_bin"].astype(str)
+        frame_order = (
+            time_df.drop_duplicates("time_bin")
+            .sort_values(time_col)["time_bin"]
+            .tolist()
+        )
+        time_df["time_bin"] = pd.Categorical(
+            time_df["time_bin"], categories=frame_order, ordered=True
+        )
+        time_df = time_df.sort_values("time_bin")
+
+        fig = px.scatter_3d(  # type: ignore
+            time_df,
+            x="longitude",
+            y="latitude",
+            z=z_axis,
+            color=graph_name,
+            animation_frame="time_bin",
+            color_continuous_scale="Viridis",
+            range_color=[c_min, c_max],
+            range_x=x_range,
+            range_y=y_range,
+            range_z=z_range,
+            title=f"Spatial-Temporal Distribution of {graph_name.upper()} ({n_bins} time bins)",
+            hover_data=hover_extras,
+            labels={"z": z_label},
+        )
+
+        fig.layout.updatemenus[0].buttons[0].args[1]["frame"]["duration"] = 600  # type: ignore
+        fig.layout.updatemenus[0].buttons[0].args[1]["transition"]["duration"] = 200  # type: ignore
 
     fig.update_traces(marker=dict(size=3))  # type: ignore
-
-    fig.layout.updatemenus[0].buttons[0].args[1]["frame"]["duration"] = 600  # type: ignore
-    fig.layout.updatemenus[0].buttons[0].args[1]["transition"]["duration"] = 200  # type: ignore
 
     fig.show()  # type: ignore
 
