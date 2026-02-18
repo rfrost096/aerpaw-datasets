@@ -1,11 +1,10 @@
 import pandas as pd
-import plotly.express as px  # type: ignore
-import plotly.graph_objects as go  # type: ignore
+import plotly.express as px
+import plotly.graph_objects as go
 import argparse
-import os
 from dotenv import load_dotenv, find_dotenv
-from aerpaw_processing.tower_locations import Tower, towers  # type: ignore
-from pathlib import Path
+from aerpaw_processing.tower_locations import Tower, towers
+from aerpaw_processing.utils import combine_datasets, find_file
 
 DEFAULT_GRAPH = "rsrp,rsrq"
 
@@ -15,62 +14,6 @@ DEFAULT_TIME_COLUMN = "companion_abs_time"
 DEFAULT_NUM_BINS = 20
 
 load_dotenv(find_dotenv("config.env"))
-
-
-def combine_datasets(
-    path_map: dict[str, pd.DataFrame],
-    graph_name: str,
-    fields: list[str],
-    cap_mode: bool = False,
-    alt_mode: bool = True,
-):
-    processed_dfs: list[pd.DataFrame] = []
-
-    for _, df in path_map.items():
-        for field in fields:
-            if field not in df.keys():
-
-                if field.upper() in df.keys():
-                    df[field] = df[field.upper()]
-                elif field.lower() in df.keys():
-                    df[field] = df[field.lower()]
-                elif field.capitalize() in df.keys():
-                    df[field] = df[field.capitalize()]
-                else:
-                    print(f"Error: Graph '{graph_name}' requires field '{field}'")
-                    return
-
-        plot_df = df.dropna(subset=fields).copy()  # type: ignore
-
-        if cap_mode:
-            p_lower = plot_df[graph_name].quantile(0.10)
-            p_upper = plot_df[graph_name].quantile(0.90)
-
-            plot_df[graph_name] = plot_df[graph_name].clip(lower=p_lower, upper=p_upper)
-
-        if alt_mode:
-            if "altitude" not in fields:
-                print("Altitude data not included")
-            else:
-                median_alt = plot_df["altitude"].median()
-                mad = (plot_df["altitude"] - median_alt).abs().median()
-
-                multiplier = 4.0
-
-                lower_bound = median_alt - (multiplier * mad)
-                upper_bound = median_alt + (multiplier * mad)
-
-                plot_df = plot_df[
-                    (plot_df["altitude"] >= lower_bound)
-                    & (plot_df["altitude"] <= upper_bound)
-                ]
-
-        processed_dfs.append(plot_df)
-
-    combined_df = pd.concat(processed_dfs, ignore_index=True)
-
-    return combined_df
-
 
 RELATIVE_TIME_PREFIX = "relative_"
 
@@ -105,16 +48,18 @@ def process_time_data(df: pd.DataFrame, time_col: str):
     df = df.sort_values(time_col)
 
     df[RELATIVE_TIME_PREFIX + time_col] = df[time_col] - df[time_col][0]
-    df[RELATIVE_TIME_PREFIX + time_col] = df[RELATIVE_TIME_PREFIX + time_col].dt.total_seconds()  # type: ignore
+    df[RELATIVE_TIME_PREFIX + time_col] = df[
+        RELATIVE_TIME_PREFIX + time_col
+    ].dt.total_seconds()  # type: ignore
 
     return df
 
 
 def plot_kpi(
-    path_map: dict[str, pd.DataFrame], graph_name: str, cap_mode: bool, alt_mode: bool
+    datasets: list[pd.DataFrame], graph_name: str, cap_mode: bool, alt_mode: bool
 ):
     combined_df = combine_datasets(
-        path_map,
+        datasets,
         graph_name,
         ["latitude", "longitude", "altitude", graph_name],
         cap_mode,
@@ -124,7 +69,7 @@ def plot_kpi(
     if combined_df is None:
         return
 
-    fig = px.scatter_3d(  # type: ignore
+    fig = px.scatter_3d(
         combined_df,
         x="longitude",
         y="latitude",
@@ -135,13 +80,13 @@ def plot_kpi(
         hover_data=["dataset_file"],
     )
 
-    fig.update_traces(marker=dict(size=3))  # type: ignore
+    fig.update_traces(marker=dict(size=3))
 
-    fig.show()  # type: ignore
+    fig.show()
 
 
 def plot_kpi_temporal(
-    path_map: dict[str, pd.DataFrame],
+    datasets: list[pd.DataFrame],
     graph_name: str,
     cap_mode: bool,
     alt_mode: bool,
@@ -167,7 +112,7 @@ def plot_kpi_temporal(
     """
     required_fields = ["latitude", "longitude", "altitude", graph_name, time_col]
     combined_df = combine_datasets(
-        path_map, graph_name, required_fields, cap_mode, alt_mode
+        datasets, graph_name, required_fields, cap_mode, alt_mode
     )
 
     if combined_df is None:
@@ -191,7 +136,7 @@ def plot_kpi_temporal(
 
         z_range = [time_df[z_axis].min(), time_df[z_axis].max()]
 
-        fig = px.scatter_3d(  # type: ignore
+        fig = px.scatter_3d(
             time_df,
             x="longitude",
             y="latitude",
@@ -213,7 +158,7 @@ def plot_kpi_temporal(
         z_range = [time_df[z_axis].min(), time_df[z_axis].max()]
 
         if relative:
-            time_delta = pd.to_timedelta(time_df[time_col], unit="s")  # type: ignore
+            time_delta = pd.to_timedelta(time_df[time_col], unit="s")
         else:
             time_delta = time_df[time_col]
 
@@ -240,7 +185,7 @@ def plot_kpi_temporal(
             time_delta, bins=bin_edges, labels=bin_labels, include_lowest=True  # type: ignore
         )
 
-        time_df = time_df.dropna(subset=["time_bin"])  # type: ignore
+        time_df = time_df.dropna(subset=["time_bin"])
         time_df["time_bin"] = time_df["time_bin"].astype(str)
         frame_order = (
             time_df.drop_duplicates("time_bin")
@@ -252,7 +197,7 @@ def plot_kpi_temporal(
         )
         time_df = time_df.sort_values("time_bin")
 
-        fig = px.scatter_3d(  # type: ignore
+        fig = px.scatter_3d(
             time_df,
             x="longitude",
             y="latitude",
@@ -268,17 +213,17 @@ def plot_kpi_temporal(
             hover_data=hover_extras,
         )
 
-        fig.layout.updatemenus[0].buttons[0].args[1]["frame"]["duration"] = 600  # type: ignore
-        fig.layout.updatemenus[0].buttons[0].args[1]["transition"]["duration"] = 200  # type: ignore
+        fig.layout.updatemenus[0].buttons[0].args[1]["frame"]["duration"] = 600
+        fig.layout.updatemenus[0].buttons[0].args[1]["transition"]["duration"] = 200
 
-    fig.update_traces(marker=dict(size=3))  # type: ignore
+    fig.update_traces(marker=dict(size=3))
 
-    fig.show()  # type: ignore
+    fig.show()
 
 
-def plot_pci(path_map: dict[str, pd.DataFrame], towers: list[Tower] | None = None):
+def plot_pci(datasets: list[pd.DataFrame], towers: list[Tower] | None = None):
     combined_df = combine_datasets(
-        path_map, "pci", ["latitude", "longitude", "altitude", "pci"]
+        datasets, "pci", ["latitude", "longitude", "altitude", "pci"]
     )
 
     if combined_df is None:
@@ -286,7 +231,7 @@ def plot_pci(path_map: dict[str, pd.DataFrame], towers: list[Tower] | None = Non
 
     combined_df["pci_str"] = combined_df["pci"].astype(str)
 
-    fig = px.scatter_3d(  # type: ignore
+    fig = px.scatter_3d(
         combined_df,
         x="longitude",
         y="latitude",
@@ -302,7 +247,7 @@ def plot_pci(path_map: dict[str, pd.DataFrame], towers: list[Tower] | None = Non
         tower_lats = [t.lat for t in towers]
         tower_alts = [t.alt for t in towers]
 
-        fig.add_trace(  # type: ignore
+        fig.add_trace(
             go.Scatter3d(
                 x=tower_lons,
                 y=tower_lats,
@@ -316,36 +261,12 @@ def plot_pci(path_map: dict[str, pd.DataFrame], towers: list[Tower] | None = Non
             )
         )
 
-    fig.update_traces(marker=dict(size=3))  # type: ignore
+    fig.update_traces(marker=dict(size=3))
 
     if len(combined_df["pci"].unique()) > 20:
-        fig.update_layout(showlegend=False)  # type: ignore
+        fig.update_layout(showlegend=False)
 
-    fig.show()  # type: ignore
-
-
-def find_file(dataset_path: str, data_filenames: list[str]) -> list[str] | None:
-    path = Path(dataset_path)
-    file_paths: list[str] = []
-
-    for filename in data_filenames:
-        matches: list[str] = []
-        for file_path in path.rglob(filename):
-            if file_path.is_file():
-                matches.append(str(file_path.resolve()))
-
-        if len(matches) > 1:
-            print("Warning: ambiguous dataset paths")
-            for match in matches:
-                print(f"\t{match}")
-
-        if len(matches) < 1:
-            print(f"Error: Dataset file not found in directory {dataset_path}.")
-            return
-
-        file_paths.append(matches[0])
-
-    return file_paths
+    fig.show()
 
 
 def main():
@@ -440,31 +361,34 @@ def main():
             )
             exit()
 
-    data_paths = find_file(str(os.getenv(f"DATASET_{dataset_num}_HOME")), filenames)
-    path_map: dict[str, pd.DataFrame] = {}
+    data_paths = find_file(dataset_num, filenames)
 
     if data_paths is None:
         return
 
+    datasets: list[pd.DataFrame] = []
+
     for idx, path in enumerate(data_paths):
-        path_map[path] = pd.read_csv(  # type: ignore
+        data = pd.read_csv(
             path,
             na_values=["Unavailable"],
             engine="pyarrow",
         )
 
-        path_map[path]["dataset_file"] = filenames[idx]
+        data["dataset_file"] = filenames[idx]
+
+        datasets.append(data)
 
     for graph_name in graph_list:
         if temporal_mode:
             plot_kpi_temporal(
-                path_map, graph_name, cap_mode, alt_mode, relative, time_col, n_bins
+                datasets, graph_name, cap_mode, alt_mode, relative, time_col, n_bins
             )
         elif kpi_mode:
-            plot_kpi(path_map, graph_name, cap_mode, alt_mode)
+            plot_kpi(datasets, graph_name, cap_mode, alt_mode)
         else:
             if graph_name == "pci":
-                plot_pci(path_map, towers)
+                plot_pci(datasets, towers)
 
 
 if __name__ == "__main__":

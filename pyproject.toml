@@ -21,9 +21,12 @@ dependencies = [
     "scipy",
     "simplekml",
     "pyproj",
-    "toml"
+    "toml",
+    "yellowbrick",
+    "scikit-learn"
 ]
 
 [project.scripts]
 generate-kml = "aerpaw_processing.KMLPostProcessing.generate_kpi_kml:main"
 generate-graphs = "aerpaw_processing.process:main"
+analyze-features = "aerpaw_processing.feature_analysis:main"

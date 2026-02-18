@@ -64,9 +64,8 @@ if CALCULATE_ALTITUDE_WITH_DEM:
         tower.alt = elevation - LW1_alt  # Alt relative to base station
 
     for tower in towers:
-        tower.alt += (
-            10  # README.md has sources for radio equipment being 10m up each tower
-        )
+        # README.md has sources for radio equipment being 10m up each tower
+        tower.alt += 10
         print(tower.alt)
 
 # Output:
