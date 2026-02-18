@@ -69,6 +69,11 @@ def main():
         default=DEFAULT_GRAPH,
         help="Graph name. Default is " + DEFAULT_GRAPH + ".",
     )
+    parser.add_argument(
+        "--fields",
+        type=str,
+        help="Fields to be analyzed. Format: name1,name2,...",
+    )
     options = parser.parse_args()
 
     dataset_num: int = int(options.dataset)
@@ -76,6 +81,9 @@ def main():
     cap_mode: bool = options.cap
     alt_mode: bool = options.alt
     graph_name: str = options.graph_name
+    fields: list[str] = []
+    if options.fields is not None:
+        fields = str(options.fields).split(",")
 
     data_paths = find_file(dataset_num, filenames)
     if data_paths is None:
@@ -92,12 +100,12 @@ def main():
 
         datasets.append(read_data)
 
-    combined_data = combine_datasets(
-        datasets, graph_name, cap_mode=cap_mode, alt_mode=alt_mode
-    )
+    combined_data = combine_datasets(datasets, graph_name, fields, cap_mode, alt_mode)
 
     if combined_data is None:
         return
+
+    combined_data = combined_data[fields]
 
     if graph_name in ["pearson", "mutual"]:
         graph_feature(combined_data, graph_name)
