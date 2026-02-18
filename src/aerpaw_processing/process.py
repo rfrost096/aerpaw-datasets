@@ -145,6 +145,7 @@ def plot_kpi_temporal(
     graph_name: str,
     cap_mode: bool,
     alt_mode: bool,
+    relative: bool,
     time_col: str,
     n_bins: int,
 ):
@@ -174,7 +175,6 @@ def plot_kpi_temporal(
 
     time_df = process_time_data(combined_df, time_col)
 
-    relative = False
     if relative:
         time_col = RELATIVE_TIME_PREFIX + time_col
 
@@ -213,7 +213,7 @@ def plot_kpi_temporal(
         z_range = [time_df[z_axis].min(), time_df[z_axis].max()]
 
         if relative:
-            time_delta = pd.to_timedelta(time_df[time_col], unit="s")
+            time_delta = pd.to_timedelta(time_df[time_col], unit="s")  # type: ignore
         else:
             time_delta = time_df[time_col]
 
@@ -230,7 +230,7 @@ def plot_kpi_temporal(
             ]
 
         else:
-            bin_edges = pd.date_range(t_min, t_max, periods=n_bins + 1)
+            bin_edges = pd.date_range(t_min, t_max, periods=n_bins + 1)  # type: ignore
             bin_labels = [
                 f"{bin_edges[i].strftime('%H:%M:%S')}–{bin_edges[i+1].strftime('%H:%M:%S')}"
                 for i in range(n_bins)
@@ -415,6 +415,11 @@ def main():
         + str(DEFAULT_NUM_BINS)
         + ".",
     )
+    parser.add_argument(
+        "--relative",
+        action="store_true",
+        help="Make time data relative to the first timestamp.",
+    )
     options = parser.parse_args()
 
     graph_list: list[str] = str(options.graph_name).split(",")
@@ -424,6 +429,7 @@ def main():
     kpi_mode: bool = options.kpi or temporal_mode  # --temporal implies --kpi
     cap_mode: bool = options.cap
     alt_mode: bool = options.alt
+    relative: bool = options.relative
     time_col: str = options.time_col
     n_bins: int = options.time_bins
 
@@ -452,7 +458,7 @@ def main():
     for graph_name in graph_list:
         if temporal_mode:
             plot_kpi_temporal(
-                path_map, graph_name, cap_mode, alt_mode, time_col, n_bins
+                path_map, graph_name, cap_mode, alt_mode, relative, time_col, n_bins
             )
         elif kpi_mode:
             plot_kpi(path_map, graph_name, cap_mode, alt_mode)
