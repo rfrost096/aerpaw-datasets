@@ -16,7 +16,7 @@ load_dotenv(find_dotenv("config.env"))
 def combine_datasets(path_map: dict[str, pd.DataFrame], graph_name: str, fields: list[str], cap_mode: bool = False, alt_mode: bool = True):
     processed_dfs: list[pd.DataFrame] = []
 
-    for file_path, df in path_map.items():
+    for _, df in path_map.items():
         for field in fields:
             if field not in df.keys():
 
@@ -50,8 +50,6 @@ def combine_datasets(path_map: dict[str, pd.DataFrame], graph_name: str, fields:
                 upper_bound = median_alt + (multiplier * mad)
 
                 plot_df = plot_df[(plot_df["altitude"] >= lower_bound) & (plot_df["altitude"] <= upper_bound)]
-
-        plot_df["dataset_file"] = file_path.split("/")[-1]
         
         processed_dfs.append(plot_df)
 
@@ -97,7 +95,7 @@ def plot_pci(path_map: dict[str, pd.DataFrame], towers: list[Tower] | None = Non
         z="altitude",
         color="pci_str",
         title="3D Spatial Distribution of Physical Cell IDs (PCI)",
-        hover_data=["technology", "bands", "rsrp"],
+        hover_data=["dataset_file"],
     )
 
     if towers is not None:
@@ -217,12 +215,14 @@ def main():
     if data_paths is None:
         return
 
-    for path in data_paths:
+    for idx, path in enumerate(data_paths):
         path_map[path] = pd.read_csv(  # type: ignore
             path,
             na_values=["Unavailable"],
             engine="pyarrow",
         )
+
+        path_map[path]["dataset_file"] = filenames[idx]
 
     for graph_name in graph_list:
         if kpi_mode:
