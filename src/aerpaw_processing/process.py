@@ -213,17 +213,27 @@ def plot_kpi_temporal(
     c_min = float(time_df[graph_name].min())
     c_max = float(time_df[graph_name].max())
 
+    if alt_mode:
+        z_axis = time_col
+        z_label = "Time"
+        hover_extras = ["dataset_file", "altitude"]
+    else:
+        z_axis = "altitude"
+        z_label = "Altitude"
+        hover_extras = ["dataset_file", time_col]
+
     fig = px.scatter_3d(  # type: ignore
         time_df,
         x="longitude",
         y="latitude",
-        z="altitude",
+        z=z_axis,
         color=graph_name,
         animation_frame="time_bin",
         color_continuous_scale="Viridis",
         range_color=[c_min, c_max],
         title=f"Spatial-Temporal Distribution of {graph_name.upper()} ({n_bins} time bins)",
-        hover_data=["dataset_file", time_col],
+        hover_data=hover_extras,
+        labels={"z": z_label},
     )
 
     fig.update_traces(marker=dict(size=3))  # type: ignore
