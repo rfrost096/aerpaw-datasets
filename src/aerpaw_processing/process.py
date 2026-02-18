@@ -105,6 +105,7 @@ def process_time_data(df: pd.DataFrame, time_col: str):
     df = df.sort_values(time_col)
 
     df[RELATIVE_TIME_PREFIX + time_col] = df[time_col] - df[time_col][0]
+    df[RELATIVE_TIME_PREFIX + time_col] = df[RELATIVE_TIME_PREFIX + time_col].dt.total_seconds()  # type: ignore
 
     return df
 
@@ -173,7 +174,9 @@ def plot_kpi_temporal(
 
     time_df = process_time_data(combined_df, time_col)
 
-    time_col = RELATIVE_TIME_PREFIX + time_col
+    relative = False
+    if relative:
+        time_col = RELATIVE_TIME_PREFIX + time_col
 
     x_range = [time_df["longitude"].min(), time_df["longitude"].max()]
     y_range = [time_df["latitude"].min(), time_df["latitude"].max()]
@@ -183,7 +186,7 @@ def plot_kpi_temporal(
 
     if alt_mode:
         z_axis = time_col
-        z_label = "Time"
+        z_label = "Time (s)"
         hover_extras = ["dataset_file", "altitude"]
 
         z_range = [time_df[z_axis].min(), time_df[z_axis].max()]
@@ -201,18 +204,20 @@ def plot_kpi_temporal(
             range_z=z_range,
             title=f"Spatial-Temporal Distribution of {graph_name.upper()}",
             hover_data=hover_extras,
-            labels={"z": z_label},
+            labels={z_axis: z_label},
         )
     else:
         z_axis = "altitude"
-        z_label = "Altitude"
         hover_extras = ["dataset_file", time_col]
 
         z_range = [time_df[z_axis].min(), time_df[z_axis].max()]
 
-        t_min, t_max = time_df[time_col].min(), time_df[time_col].max()
+        if relative:
+            time_delta = pd.to_timedelta(time_df[time_col], unit="s")
+        else:
+            time_delta = time_df[time_col]
 
-        relative = True
+        t_min, t_max = time_delta.min(), time_delta.max()
 
         bin_edges: pd.TimedeltaIndex | pd.DatetimeIndex
         bin_labels: list[str]
@@ -220,7 +225,7 @@ def plot_kpi_temporal(
         if relative:
             bin_edges = pd.timedelta_range(t_min, t_max, periods=n_bins + 1)
             bin_labels = [
-                f"{round(bin_edges[i].total_seconds())}s - {round(bin_edges[i+1].total_seconds())}s"
+                f"{bin_edges[i].total_seconds():.2f}s - {bin_edges[i+1].total_seconds():.2f}s"
                 for i in range(n_bins)
             ]
 
@@ -232,7 +237,7 @@ def plot_kpi_temporal(
             ]
 
         time_df["time_bin"] = pd.cut(  # type: ignore
-            time_df[time_col], bins=bin_edges, labels=bin_labels, include_lowest=True  # type: ignore
+            time_delta, bins=bin_edges, labels=bin_labels, include_lowest=True  # type: ignore
         )
 
         time_df = time_df.dropna(subset=["time_bin"])  # type: ignore
@@ -261,7 +266,6 @@ def plot_kpi_temporal(
             range_z=z_range,
             title=f"Spatial-Temporal Distribution of {graph_name.upper()} ({n_bins} time bins)",
             hover_data=hover_extras,
-            labels={"z": z_label},
         )
 
         fig.layout.updatemenus[0].buttons[0].args[1]["frame"]["duration"] = 600  # type: ignore
