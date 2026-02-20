@@ -3,8 +3,19 @@ from typing import Any
 from pathlib import Path
 import os
 from dotenv import load_dotenv, find_dotenv
+from aerpaw_processing.resources.config import Config
+import yaml
+from importlib import resources
+from functools import reduce
 
 load_dotenv(find_dotenv("config.env"))
+
+
+def load_config() -> Config:
+    details = resources.files("aerpaw_processing.resources") / "config.yaml"
+
+    with details.open("r") as f:
+        return Config(**yaml.safe_load(f))
 
 
 def find_file(dataset_num: int, data_filenames: list[str]) -> list[str] | None:
@@ -24,12 +35,28 @@ def find_file(dataset_num: int, data_filenames: list[str]) -> list[str] | None:
                 print(f"\t{match}")
 
         if len(matches) < 1:
-            print(f"Error: Dataset file not found in directory {dataset_path}.")
+            print(
+                f"Error: Dataset file not found in directory {dataset_path}, filename {data_filenames}."
+            )
             return
 
         file_paths.append(matches[0])
 
     return file_paths
+
+
+def load_datasets(filepaths: list[str]):
+    datasets: list[pd.DataFrame] = []
+    for _, path in enumerate(filepaths):
+        read_data = pd.read_csv(
+            path,
+            na_values=["Unavailable"],
+            engine="pyarrow",
+        )
+
+        datasets.append(read_data)
+
+    return datasets
 
 
 def check_field_alias(field: str, keys: Any) -> str | None:
@@ -96,3 +123,77 @@ def combine_datasets(
     combined_df = pd.concat(processed_dfs, ignore_index=True)
 
     return combined_df
+
+
+def merge_datasets(dfs_list: list[pd.DataFrame], merge_col: str, how: str = "outer"):
+    """
+    Merges a list of pandas DataFrames based on a specific column.
+
+    Parameters:
+    - dfs_list (list): A list of pandas DataFrames to merge.
+    - merge_col (str): The name of the column to merge on.
+    - how (str): Type of merge to be performed ('inner', 'outer', 'left', 'right'). Default is 'outer'.
+
+    Returns:
+    - pd.DataFrame: A single merged DataFrame.
+    """
+
+    def clean_merge(left: pd.DataFrame, right: pd.DataFrame):
+        overlapping_cols = set(left.columns).intersection(set(right.columns)) - {
+            merge_col
+        }
+        right_clean = right.drop(columns=list(overlapping_cols))
+        return pd.merge(left, right_clean, on=merge_col, how=how)  # type: ignore
+
+    merged_df = reduce(clean_merge, dfs_list)
+
+    return merged_df
+
+
+ignore_cols = {"ID", "Timestamp", "Longitude", "Latitude", "Altitude"}
+
+
+def convert_columns(
+    data_list: list[pd.DataFrame], config: Config
+) -> list[pd.DataFrame]:
+    ordered_cols = [col.name for category in config.categories for col in category.cols]
+    result: list[pd.DataFrame] = []
+
+    for data in data_list:
+        for original_col in list(data.keys()):
+            found = False
+            for category in config.categories:
+                for col in category.cols:
+                    if original_col in col.alias_list:
+                        if col.name in data.columns:
+                            data.drop(columns=[original_col], inplace=True)
+                        else:
+                            data.rename(columns={original_col: col.name}, inplace=True)
+                        found = True
+                    elif original_col == col.name or original_col in ignore_cols:
+                        found = True
+            if not found:
+                data.drop(columns=[original_col], inplace=True)
+
+        sorted_cols = [col for col in ordered_cols if col in data.columns]
+        if "ID" in data.columns:
+            sorted_cols.append("ID")
+        result.append(data[sorted_cols])
+
+    return result
+
+
+def merge_tech_datasets(lte_4g: pd.DataFrame, nr_5g: pd.DataFrame):
+
+    for col in list(lte_4g.keys()):
+        if col not in ignore_cols:
+            lte_4g.rename(columns={col: f"{col} (4G LTE)"}, inplace=True)
+    for col in list(nr_5g.keys()):
+        if col not in ignore_cols:
+            nr_5g.rename(columns={col: f"{col} (5G NR)"}, inplace=True)
+
+    data = merge_datasets([lte_4g, nr_5g], "ID")
+
+    data.drop(columns=["ID"], inplace=True)
+
+    return data

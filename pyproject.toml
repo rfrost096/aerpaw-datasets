@@ -23,7 +23,9 @@ dependencies = [
     "pyproj",
     "toml",
     "yellowbrick",
-    "scikit-learn"
+    "scikit-learn",
+    "pyyaml",
+    "datamodel-code-generator"
 ]
 
 [project.scripts]

@@ -1,0 +1,228 @@
+categories:
+
+  - category: Location
+    cols:
+      - name: Timestamp
+        description: The absolute date and time at which the measurement was recorded.
+        alias_list:
+          - Time and date
+          - companion_abs_time
+          - companion_abs_time_ms
+          - abs_time
+
+      - name: Longitude
+        description: The east-west geographic coordinate of the device at the time of measurement.
+        alias_list:
+          - longitude
+
+      - name: Latitude
+        description: The north-south geographic coordinate of the device at the time of measurement.
+        alias_list:
+          - latitude
+
+      - name: Altitude
+        description: The height of the device above sea level at the time of measurement.
+        alias_list:
+          - altitude
+
+  - category: Network Identity
+    cols:
+      - name: Cell ID
+        description: The unique identifier of the serving cell to which the device is connected.
+        alias_list:
+          - LTE Cell ID
+          - NR Cell ID
+
+      - name: MCC
+        extended: Mobile Country Code
+        description: A three-digit code that uniquely identifies the country of the mobile network operator.
+        alias_list:
+          - mcc
+          - Mobile country code
+
+      - name: MNC
+        extended: Mobile Network Code
+        description: A two- or three-digit code that uniquely identifies the mobile network operator within a country.
+        alias_list:
+          - mnc
+          - Mobile network code
+
+      - name: TAC
+        extended: Tracking Area Code
+        description: An identifier for the tracking area used by the network to manage device location and paging.
+        alias_list:
+          - tac
+
+      - name: CI
+        extended: Cell Identity
+        description: A numeric identifier that distinguishes a specific cell within a location area or tracking area.
+        alias_list:
+          - ci
+
+      - name: PCI
+        extended: Physical Cell Identity
+        description: A number (0–503) used to identify a cell at the physical layer to assist in cell selection and handover.
+        alias_list:
+          - pci
+
+      - name: EARFCN
+        extended: E-UTRA Absolute Radio Frequency Channel Number
+        description: A channel number that specifies the carrier frequency used by an LTE cell for uplink and downlink transmissions.
+        alias_list:
+          - earfcn
+
+      - name: Bands
+        description: The radio frequency band or bands on which the device is currently operating.
+        alias_list:
+          - bands
+          - Band
+
+      - name: Modes
+        description: The radio access technology mode or modes active on the device, such as LTE or NR.
+        alias_list:
+          - modes
+
+      - name: NR Type
+        extended: New Radio Type
+        description: Indicates whether the NR connection is operating in standalone (SA) or non-standalone (NSA) mode.
+        alias_list:
+          - nr_type
+
+  - category: Signal Quality
+    cols:
+      - name: RSRP
+        extended: Reference Signal Received Power
+        description: The average power of the LTE or NR reference signals received by the device, indicating signal strength.
+        alias_list:
+          - LTE RSRP
+          - NR RSRP
+          - rsrp
+          - ss_rsrp
+          - RSRP (NR SpCell)
+
+      - name: RSRQ
+        extended: Reference Signal Received Quality
+        description: A ratio-based metric that combines signal strength and interference to indicate overall signal quality.
+        alias_list:
+          - rsrq
+          - RSRQ (NR SpCell)
+          - ss_rsrq
+
+      - name: RSSI
+        extended: Received Signal Strength Indicator
+        description: The total received wideband power, including signal, interference, and noise, measured at the device antenna.
+        alias_list:
+          - rssi
+          - RSSI (NR SpCell)
+
+      - name: SINR
+        extended: Signal-to-Interference-plus-Noise Ratio
+        description: The ratio of the desired signal power to the combined interference and noise, reflecting link quality.
+        alias_list:
+          - sinr
+          - LTE SINR
+          - NR SINR
+          - SINR (NR SpCell)
+          - ss_sinr
+
+      - name: RSSNR
+        extended: Received Signal Strength to Noise Ratio
+        description: A signal quality metric representing the ratio of received signal strength to background noise.
+        alias_list:
+          - rssnr
+
+      - name: CSI RSRP
+        extended: Channel State Information Reference Signal Received Power
+        description: The received power of CSI reference signals, used for beam management and link adaptation in NR.
+        alias_list:
+          - csi_rsrp
+
+      - name: CSI RSRQ
+        extended: Channel State Information Reference Signal Received Quality
+        description: The quality of CSI reference signals, factoring in interference and noise for NR link assessment.
+        alias_list:
+          - csi_rsrq
+
+      - name: CSI SINR
+        extended: Channel State Information Signal-to-Interference-plus-Noise Ratio
+        description: The signal-to-interference-plus-noise ratio derived from CSI measurements in NR networks.
+        alias_list:
+          - csi_sinr
+
+      - name: DBM
+        extended: Decibels relative to one Milliwatt
+        description: The received signal power expressed in dBm, representing absolute signal level at the device.
+        alias_list:
+          - dbm
+
+      - name: ASU
+        extended: Arbitrary Strength Unit
+        description: A unitless integer value reported by the Android framework that maps to a range of signal strength levels.
+        alias_list:
+          - asu
+
+      - name: Level
+        description: A coarse signal strength level (typically 0–4) as reported by the device operating system.
+        alias_list:
+          - level
+
+  - category: Radio Performance
+    cols:
+      - name: Throughput
+        description: The measured data transfer rate between the device and the network, typically in Mbps.
+        alias_list:
+          - throughput
+
+      - name: CQI
+        extended: Channel Quality Indicator
+        description: A value reported by the device to the base station indicating the observed downlink channel quality.
+        alias_list:
+          - NR CQI
+
+      - name: MCS
+        extended: Modulation and Coding Scheme
+        description: An index that defines the modulation order and code rate used for data transmission on the downlink.
+        alias_list:
+          - NR MCS
+
+      - name: RI
+        extended: Rank Indicator
+        description: Indicates the number of independent data streams (layers) the channel can support for MIMO transmission.
+        alias_list:
+          - NR RI
+
+      - name: iperf Throughput
+        description: The network throughput measured by an iperf client during an active test session, typically in Mbps.
+        alias_list:
+          - iperf_client_mbps
+
+  - category: Connection Status
+    cols:
+      - name: Is Connected
+        description: A boolean flag indicating whether the device has an active data connection to the network.
+        alias_list:
+          - is_connected
+
+      - name: TA
+        extended: Timing Advance
+        description: A value used to synchronize uplink transmissions by compensating for the propagation delay between the device and base station.
+        alias_list:
+          - ta
+          - Timing advance
+
+  - category: Base Station
+    cols:
+      - name: Base Station Distance
+        description: The estimated straight-line distance between the device and the serving base station.
+        alias_list:
+          - bs_distance
+
+      - name: Base Station Bearing
+        description: The compass bearing from the device toward the serving base station.
+        alias_list:
+          - bs_bearing
+
+      - name: Base Station Elevation
+        description: The elevation angle from the device up to the serving base station antenna.
+        alias_list:
+          - bs_elevation
