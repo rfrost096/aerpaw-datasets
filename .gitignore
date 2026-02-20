@@ -2,3 +2,5 @@ config.env
 *.egg-info
 **/__pycache__/
 *.pyc
+presentations/*/*.png
+presentations/*/build

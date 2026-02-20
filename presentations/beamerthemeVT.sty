@@ -1,0 +1,79 @@
+\ProvidesPackage{beamerthemeVT}
+
+\usepackage{graphicx}
+
+% ---------------------------------------------------------
+% FONTS & COLORS
+% ---------------------------------------------------------
+\usefonttheme{serif}
+\RequirePackage{mathptmx}
+
+% https://brand.vt.edu/identity/color/color-util.html
+% VT Maroon (HEX: #861F41 / RGB: 134, 31, 65)
+\definecolor{VTMaroon}{RGB}{134,31,65}
+
+\setbeamercolor{normal text}{fg=black}
+\setbeamercolor{itemize item}{fg=VTMaroon}
+\setbeamercolor{itemize subitem}{fg=black}
+
+% ---------------------------------------------------------
+% LOGO
+% ---------------------------------------------------------
+\newcommand{\logoleft}[1]{\def\insertlogoleft{#1}}
+\newcommand{\logoright}[1]{\def\insertlogoright{#1}}
+
+\logoleft{\includegraphics[height=0.7cm, trim=0 50mm 0 50mm, clip]{vt-logo.png}}
+\logoright{\includegraphics[height=0.9cm, trim=0 30mm 0 30mm, clip]{wireless.png}}
+
+% ---------------------------------------------------------
+% REMOVE DEFAULT BEAMER CLUTTER
+% ---------------------------------------------------------
+\setbeamertemplate{navigation symbols}{}
+
+% ---------------------------------------------------------
+% FOOTLINE
+% ---------------------------------------------------------
+\setbeamertemplate{footline}{
+  \leavevmode%
+  \hbox{%
+  \begin{beamercolorbox}[wd=.5\paperwidth,ht=4ex,dp=2ex,left]{}%
+    \hspace*{3ex}\insertlogoleft
+  \end{beamercolorbox}%
+  \begin{beamercolorbox}[wd=.5\paperwidth,ht=4ex,dp=2ex,right]{}%
+    \insertlogoright\hspace*{3ex}
+  \end{beamercolorbox}}%
+}
+
+% ---------------------------------------------------------
+% TITLE PAGE
+% ---------------------------------------------------------
+\setbeamerfont{title}{size=\huge, series=\bfseries}
+\setbeamerfont{subtitle}{size=\Large}
+
+\setbeamertemplate{title page}{
+  \vspace*{0.25\paperheight}
+  \begin{center}
+    {\usebeamerfont{title}\textcolor{VTMaroon}{\inserttitle}\par}
+    \vspace{0.5cm}
+    {\usebeamerfont{subtitle}\textcolor{black}{\insertsubtitle}\par}
+  \end{center}
+  \vfill
+}
+
+% ---------------------------------------------------------
+% FRAME TITLE
+% ---------------------------------------------------------
+\setbeamerfont{frametitle}{size=\LARGE, series=\bfseries}
+
+\setbeamertemplate{frametitle}{
+  \vspace*{2ex}
+  \begin{center}
+    {\usebeamerfont{frametitle}\textcolor{VTMaroon}{\insertframetitle}\par}
+  \end{center}
+}
+
+% ---------------------------------------------------------
+% BULLET POINT STYLING
+% ---------------------------------------------------------
+\setbeamertemplate{itemize items}[circle]
+\setbeamertemplate{itemize subitem}[dash]

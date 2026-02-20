@@ -1,0 +1,58 @@
+\makeatletter
+\def\input@path{{../}}
+\makeatother
+\documentclass[aspectratio=169]{beamer}
+\usepackage{graphicx}
+\usepackage{import}
+\subtitle{Datasets 18, 22, \& 24}
+
+\begin{document}
+
+% ---------------------------------------------------------
+% TITLE SLIDE
+% ---------------------------------------------------------
+\begin{frame}
+    \titlepage
+\end{frame}
+
+% ---------------------------------------------------------
+% CONTENT SLIDE
+% ---------------------------------------------------------
+\begin{frame}{First Content Slide}
+    
+    % This creates the split left/right layout you requested
+    \begin{columns}[T] % [T] aligns both columns at the top
+    
+        % --- LEFT COLUMN (Text, Headers, Bullets) ---
+        \begin{column}{0.45\textwidth}
+            \textbf{Primary Header}
+            \begin{itemize}
+                \item First main point
+                \item Second main point
+                \begin{itemize}
+                    \item A sub-point underneath
+                    \item Another sub-point
+                \end{itemize}
+            \end{itemize}
+            
+            \vspace{0.5cm} % Add some space before the next section
+            
+            \textbf{Secondary Header}
+            \begin{itemize}
+                \item More bullet points can go here
+                \item Allowing arbitrary numbers of headers
+            \end{itemize}
+        \end{column}
+        
+        % --- RIGHT COLUMN (Centered Image or Text) ---
+        \begin{column}{0.45\textwidth}
+            \begin{center}
+                % You can put an image here:
+                \includegraphics[width=\textwidth]{sponge.png}
+            \end{center}
+        \end{column}
+        
+    \end{columns}
+\end{frame}
+
+\end{document}
