@@ -1,33 +1,96 @@
 import pandas as pd
 import argparse
-from yellowbrick.target import FeatureCorrelation
-from aerpaw_processing.utils import combine_datasets, find_file
+import matplotlib.pyplot as plt
+from sklearn.feature_selection import mutual_info_regression
+from aerpaw_processing.utils import combine_datasets, find_file, load_config
+
 
 DEFAULT_GRAPH = "pearson"
+config = load_config()
 
 
-def graph_feature(combined_data: pd.DataFrame, graph_name: str):
+def graph_feature(
+    combined_data: pd.DataFrame, graph_name: str, save_path: str | None = None
+):
     working_data = combined_data.copy()
 
-    x = working_data.drop(columns=["rsrp"])
-    x = x.select_dtypes(include=["number"])
+    compare_column: str | None = None
 
-    y = working_data["rsrp"]
-
-    visualizer: FeatureCorrelation
-
-    if graph_name == "pearson":
-        visualizer = FeatureCorrelation(labels=x.columns)
-    elif graph_name == "mutual":
-        visualizer = FeatureCorrelation(
-            method="mutual_info-regression", labels=x.columns
-        )
+    if "rsrp" in working_data.columns:
+        compare_column = "rsrp"
+    elif "RSRP" in working_data.columns:
+        compare_column = "RSRP"
     else:
+        for col in working_data.columns:
+            if "rsrp" in col.lower():
+                compare_column = col
+                break
+
+    if compare_column is None:
+        print("Error: No RSRP column found for correlation analysis.")
         return
 
-    visualizer.fit(x, y)
+    x = working_data.drop(columns=[compare_column])
+    x = x.select_dtypes(include=["number"])
+    y = working_data[compare_column]
 
-    visualizer.show()
+    scores_dict = {}
+
+    if graph_name == "pearson":
+        scores_dict = x.corrwith(y).dropna().to_dict()
+
+    elif graph_name == "mutual":
+        for col in x.columns:
+            valid_mask = x[col].notna() & y.notna()
+            x_valid = x.loc[valid_mask, col]
+            y_valid = y.loc[valid_mask]
+
+            if len(x_valid) > 1:
+                score = mutual_info_regression(
+                    x_valid.to_frame(), y_valid, random_state=42
+                )[0]
+                scores_dict[col] = score
+    else:
+        print(f"Error: graph_name '{graph_name}' not supported.")
+        return None
+
+    if not scores_dict:
+        print("Error: No valid overlapping data points found for analysis.")
+        return None
+
+    col_sort_order: list[str] = ["RSRP"]
+    for cat in config.categories:
+        if cat.category != "Location":
+            col_sort_order.extend([col.name for col in cat.cols])
+
+    col_sort_order.reverse()
+
+    scores_series = pd.Series(scores_dict)
+
+    existing_cols: list[str] = []
+
+    for c in col_sort_order:
+        for col in scores_series.index:
+            if c.lower() in col.lower() and col not in existing_cols:
+                existing_cols.append(col)
+
+    scores_series = scores_series.reindex(existing_cols)
+
+    plt.figure(figsize=(8, max(4, len(scores_series) * 0.3)))
+    scores_series.plot(kind="barh", color="steelblue", edgecolor="black")
+
+    plt.title(f"Feature Correlation ({graph_name.capitalize()}) with {compare_column}")
+    plt.xlabel("Score")
+    plt.ylabel("Features")
+    plt.grid(axis="x", linestyle="--", alpha=0.7)
+    plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path)
+    else:
+        plt.show()
+
+    return scores_series
 
 
 def main():

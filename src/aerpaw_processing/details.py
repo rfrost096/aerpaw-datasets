@@ -261,7 +261,15 @@ class AllFlights:
 
         latex_table = f"\\resizebox{{\\textwidth}}{{!}}{{{latex_table}}}"
 
-        return latex_table
+        latex_lines = [
+            r"\begin{table}[ht]",
+            r"\centering",
+            latex_table,
+            f"\\caption{{Summary of Flights for Dataset {dataset_num}}}",
+            r"\end{table}",
+        ]
+
+        return "\n".join(latex_lines)
 
     def get_column_summary(self) -> pd.DataFrame:
         """
@@ -338,6 +346,7 @@ class AllFlights:
 
         latex_lines.append(r"\end{tabular}")
         latex_lines.append(r"}")
+        latex_lines.append(r"\caption{Summary of Flight Column Sets}")
         latex_lines.append(r"\end{table}")
 
         return "\n".join(latex_lines)
@@ -387,6 +396,9 @@ class AllFlights:
 
         latex_lines.append(r"\end{tabular}")
         latex_lines.append(r"}")
+        latex_lines.append(
+            r"\caption{Checklist of Signal Quality Columns in Each Flight}"
+        )
         latex_lines.append(r"\end{table}")
 
         return "\n".join(latex_lines)

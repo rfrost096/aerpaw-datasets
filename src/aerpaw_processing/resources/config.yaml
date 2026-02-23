@@ -24,7 +24,7 @@ datasets:
         merge_col: ID
         files:
           LTE_4G:
-            - Ericsson_Amir/Dryad/yaw315/inputf1_cellid_with_header.csv
+            - Ericsson_Amir/Dryad/yaw45/inputf1_cellid_with_header.csv
             - Ericsson_Amir/Dryad/yaw45/inputf1_rsrp_with_header.csv
             - Ericsson_Amir/Dryad/yaw45/inputf1_sinr_with_header.csv
           NR_5G:
