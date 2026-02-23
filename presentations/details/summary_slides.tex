@@ -1,0 +1,113 @@
+\begin{frame}{Dataset Features}
+    \begin{center}
+        \begin{table}[ht]
+\centering
+\renewcommand{\arraystretch}{0.75}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{|p{0.25\textwidth}|p{0.75\textwidth}|}
+\hline
+\textbf{\scriptsize Flight IDs} & \textbf{\scriptsize Columns} \\
+\hline
+{\raggedright\scriptsize 18:Yaw 315 Flight \newline 18:Yaw 45 Flight} & \raggedright\scriptsize Cell ID (4G LTE), RSRP (4G LTE), SINR (4G LTE), Cell ID (5G NR), CQI (5G NR), MCS (5G NR), RI (5G NR), RSRP (5G NR), SINR (5G NR), Throughput (5G NR) \tabularnewline
+\hline
+{\raggedright\scriptsize 22:4G LTE Flight} & \raggedright\scriptsize RSRP, RSRQ, RSSI, TA, Is Connected, ASU, MCC, MNC, TAC, CI, PCI, EARFCN, Bands, Modes \tabularnewline
+\hline
+{\raggedright\scriptsize 24:Nemo 5G 30m Flight 1 \newline 24:Nemo 5G 30m Flight 2} & \raggedright\scriptsize RSRP, RSRQ, RSSI, SINR, TA, MCC, MNC, Bands, Base Station Distance, Base Station Bearing, Base Station Elevation \tabularnewline
+\hline
+{\raggedright\scriptsize 24:PawPrints 4G 30m Flight 1 \newline 24:PawPrints 4G 30m Flight 2 \newline 24:PawPrints 4G 50m Flight} & \raggedright\scriptsize RSRP, RSRQ, RSSI, RSSNR, TA, Is Connected, ASU, Level, MCC, MNC, TAC, CI, PCI, EARFCN, Bands, Modes, Base Station Distance, Base Station Bearing, Base Station Elevation \tabularnewline
+\hline
+{\raggedright\scriptsize 24:PawPrints 5G 30m Flight 1 \newline 24:PawPrints 5G 50m Flight} & \raggedright\scriptsize RSRP, RSRQ, SINR, ASU, Level, NR Type, Base Station Distance, Base Station Bearing, Base Station Elevation \tabularnewline
+\hline
+{\raggedright\scriptsize 24:PawPrints 5G 30m Flight 2} & \raggedright\scriptsize RSRP, RSRQ, SINR, CSI RSRP, CSI RSRQ, CSI SINR, ASU, Level, NR Type, Base Station Distance, Base Station Bearing, Base Station Elevation \tabularnewline
+\hline
+{\raggedright\scriptsize 24:PawPrints iperf Throughput 30m Flight} & \raggedright\scriptsize iperf Throughput, Base Station Distance, Base Station Bearing, Base Station Elevation \tabularnewline
+\hline
+\end{tabular}
+}
+\end{table}
+    \end{center}
+\end{frame}
+
+\begin{frame}{Dataset Features Checklist}
+    \begin{center}
+        \begin{table}[ht]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{0.9}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{|l|c|c|c|c|c|c|}
+\hline
+\textbf{Flight ID} & \textbf{RSRP} & \textbf{RSRQ} & \textbf{RSSI} & \textbf{SINR} & \textbf{RSSNR} & \textbf{TA} \\
+\hline
+18:Yaw 315 Flight & \checkmark &  &  & \checkmark &  &  \\
+\hline
+18:Yaw 45 Flight & \checkmark &  &  & \checkmark &  &  \\
+\hline
+22:4G LTE Flight & \checkmark & \checkmark & \checkmark &  &  & \checkmark \\
+\hline
+24:Nemo 5G 30m Flight 1 & \checkmark & \checkmark & \checkmark & \checkmark &  & \checkmark \\
+\hline
+24:Nemo 5G 30m Flight 2 & \checkmark & \checkmark & \checkmark & \checkmark &  & \checkmark \\
+\hline
+24:PawPrints 4G 30m Flight 1 & \checkmark & \checkmark & \checkmark &  & \checkmark & \checkmark \\
+\hline
+24:PawPrints 4G 30m Flight 2 & \checkmark & \checkmark & \checkmark &  & \checkmark & \checkmark \\
+\hline
+24:PawPrints 4G 50m Flight & \checkmark & \checkmark & \checkmark &  & \checkmark & \checkmark \\
+\hline
+24:PawPrints 5G 30m Flight 1 & \checkmark & \checkmark &  & \checkmark &  &  \\
+\hline
+24:PawPrints 5G 30m Flight 2 & \checkmark & \checkmark &  & \checkmark &  &  \\
+\hline
+24:PawPrints 5G 50m Flight & \checkmark & \checkmark &  & \checkmark &  &  \\
+\hline
+24:PawPrints iperf Throughput 30m Flight &  &  &  &  &  &  \\
+\hline
+\end{tabular}
+}
+\end{table}
+    \end{center}
+\end{frame}
+
+\begin{frame}{Dataset 18 Summary}
+    \begin{center}
+        \resizebox{\textwidth}{!}{\begin{tabular}{|c|c|c|c|c|c|c|c|}
+\hline
+Name & Duration & Avg Time Step & Avg Spatial Step & Area Covered & Sample Density & Alt Avg & Alt Range \\ \hline
+Yaw 315 Flight & 12m 9s & 0s 125µs & 2.39 m & 4.51e+04 m² & 0.0599 smple/m² & 30 m & 0.566 m \\ \hline
+Yaw 45 Flight & 12m 9s & 0s 125µs & 2.39 m & 4.51e+04 m² & 0.0599 smple/m² & 30 m & 0.566 m \\ \hline
+\end{tabular}
+}
+    \end{center}
+\end{frame}
+
+\begin{frame}{Dataset 22 Summary}
+    \begin{center}
+        \resizebox{\textwidth}{!}{\begin{tabular}{|c|c|c|c|c|c|c|c|}
+\hline
+Name & Duration & Avg Time Step & Avg Spatial Step & Area Covered & Sample Density & Alt Avg & Alt Range \\ \hline
+4G LTE Flight & 17m 29s & 0s 782µs & 2.49 m & 1.15e+05 m² & 0.0153 smple/m² & 49.9 m & 1.05 m \\ \hline
+\end{tabular}
+}
+    \end{center}
+\end{frame}
+
+\begin{frame}{Dataset 24 Summary}
+    \begin{center}
+        \resizebox{\textwidth}{!}{\begin{tabular}{|c|c|c|c|c|c|c|c|}
+\hline
+Name & Duration & Avg Time Step & Avg Spatial Step & Area Covered & Sample Density & Alt Avg & Alt Range \\ \hline
+Nemo 5G 30m Flight 1 & 12m 47s & 0s 714µs & 0.234 m & 4.45e+04 m² & 0.622 smple/m² & 30 m & 0.503 m \\ \hline
+Nemo 5G 30m Flight 2 & 12m 50s & 0s 276µs & 0.221 m & 4.46e+04 m² & 0.658 smple/m² & 29.3 m & 2.88 m \\ \hline
+PawPrints 4G 30m Fli... & 12m 47s & 0s 91µs & 4.42 m & 4.45e+04 m² & 0.0329 smple/m² & 30 m & 0.8 m \\ \hline
+PawPrints 4G 30m Fli... & 12m 47s & 0s 7µs & 5.12 m & 4.46e+04 m² & 0.0284 smple/m² & 30 m & 1.16 m \\ \hline
+PawPrints 4G 50m Fli... & 12m 47s & 0s 51µs & 4.99 m & 4.45e+04 m² & 0.0292 smple/m² & 49.9 m & 0.838 m \\ \hline
+PawPrints 5G 30m Fli... & 12m 46s & 1s 40µs & 8.97 m & 4.45e+04 m² & 0.0162 smple/m² & 30 m & 0.55 m \\ \hline
+PawPrints 5G 30m Fli... & 12m 46s & 1s 975µs & 9.95 m & 4.46e+04 m² & 0.0146 smple/m² & 30 m & 0.565 m \\ \hline
+PawPrints 5G 50m Fli... & 12m 44s & 1s 26µs & 10.3 m & 4.43e+04 m² & 0.0142 smple/m² & 49.9 m & 0.714 m \\ \hline
+PawPrints iperf Thro... & 12m 48s & 1s 0µs & 8.43 m & 4.45e+04 m² & 0.0173 smple/m² & 30 m & 0.8 m \\ \hline
+\end{tabular}
+}
+    \end{center}
+\end{frame}
+

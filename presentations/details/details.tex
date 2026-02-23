@@ -4,6 +4,10 @@
 \documentclass[aspectratio=169]{beamer}
 \usepackage{graphicx}
 \usepackage{beamerthemeVT}
+\usepackage{booktabs} % used for tables
+\usepackage{array} % used for tables
+\usepackage{multirow} % used for tables
+\usepackage{adjustbox} % used for tables
 
 \title{AEPRAW Dataset Analysis}
 \subtitle{Datasets 18, 22, \& 24}
@@ -50,11 +54,16 @@
         \begin{column}{0.45\textwidth}
             \begin{center}
                 % You can put an image here:
-                \includegraphics[width=\textwidth]{sponge.png}
+                % \includegraphics[width=\textwidth]{sponge.png}
             \end{center}
         \end{column}
         
     \end{columns}
 \end{frame}
+
+% ---------------------------------------------------------
+% TABLE SLIDE
+% ---------------------------------------------------------
+\input{summary_slides.tex}
 
 \end{document}

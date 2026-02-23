@@ -42,7 +42,7 @@ datasets:
     src_code_link: https://github.com/pawprints-tool/postProcessing
     description: "A UAV carrying a Samsung S21 Android Phone was flown in a trajectory approximating semi-circles around a private Ericsson AERPAW base station. The Android logged 4G cellular KPIs, and these logs were correlated with the UAV’s position based on timestamps. All cellular and position KPIs are merged in a single .csv file for convenient analysis."
     flights:
-      - name: Flight
+      - name: 4G LTE Flight
         files:
           LTE_4G:
             - Logs/lte.csv
@@ -161,6 +161,15 @@ categories:
         alias_list:
           - rssnr
 
+      - name: TA
+        extended: Timing Advance
+        description: A value used to synchronize uplink transmissions by compensating for the propagation delay between the device and base station.
+        alias_list:
+          - ta
+          - Timing advance
+
+  - category: Extra Signal Quality
+    cols:
       - name: CSI RSRP
         extended: Channel State Information Reference Signal Received Power
         description: The received power of CSI reference signals, used for beam management and link adaptation in NR.
@@ -179,16 +188,6 @@ categories:
         alias_list:
           - csi_sinr
 
-      - name: ASU
-        extended: Arbitrary Strength Unit
-        description: A unitless integer value reported by the Android framework that maps to a range of signal strength levels.
-        alias_list:
-          - asu
-
-      - name: Level
-        description: A coarse signal strength level (typically 0–4) as reported by the device operating system.
-        alias_list:
-          - level
 
   - category: Radio Performance
     cols:
@@ -226,13 +225,17 @@ categories:
         description: A boolean flag indicating whether the device has an active data connection to the network.
         alias_list:
           - is_connected
-
-      - name: TA
-        extended: Timing Advance
-        description: A value used to synchronize uplink transmissions by compensating for the propagation delay between the device and base station.
+          
+      - name: ASU
+        extended: Arbitrary Strength Unit
+        description: A unitless integer value reported by the Android framework that maps to a range of signal strength levels.
         alias_list:
-          - ta
-          - Timing advance
+          - asu
+
+      - name: Level
+        description: A coarse signal strength level (typically 0–4) as reported by the device operating system.
+        alias_list:
+          - level
 
   - category: Network Identity
     cols:

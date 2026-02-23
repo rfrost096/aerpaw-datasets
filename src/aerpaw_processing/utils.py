@@ -175,6 +175,11 @@ def convert_columns(
             if not found:
                 data.drop(columns=[original_col], inplace=True)
 
+        if "Timestamp" in data.columns:
+            data["Timestamp"] = pd.to_datetime(
+                data["Timestamp"], unit="ms", errors="coerce"
+            )
+
         sorted_cols = [col for col in ordered_cols if col in data.columns]
         if "ID" in data.columns:
             sorted_cols.append("ID")
