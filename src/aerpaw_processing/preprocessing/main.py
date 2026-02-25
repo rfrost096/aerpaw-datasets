@@ -31,6 +31,25 @@ def process_datasets(
     alt_median_abs_deviation: bool = False,
     fill: bool = True,
 ):
+    """
+    Processes, cleans, and merges flight datasets based on configuration settings.
+
+    Iterates through datasets and flights defined in 'config_file.yaml', loading and merging
+    sensor/technology files. It applies formatting, downselects features, and executes
+    optional transformations such as relative time conversion, coordinate projection,
+    outlier filtering, and missing value imputation.
+
+    Args:
+        save_cleaned_data (bool, optional): If True, saves processed DataFrames as CSVs to the 'DATASET_CLEAN_HOME' directory. Defaults to True.
+        relative_time (bool, optional): If True, converts absolute timestamps to relative time. Defaults to True.
+        project_coords (bool, optional): If True, projects longitude and latitude into planar coordinates. Uses base tower location for x, y reference. Defaults to True.
+        alt_median_abs_deviation (bool, optional): If True, filters to specific 2D altitude of the dataset using median absolute deviation. Defaults to False.
+        fill (bool, optional): If True, fills missing data using forward and backward fill (ffill/bfill). Defaults to True.
+
+    Returns:
+        dict[int, dict[str, pd.DataFrame]]: A nested dictionary containing the processed data.
+            The outer key is the dataset number (int) and the inner key is the flight name (str).
+    """
 
     step.next_step()
 
@@ -248,9 +267,9 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     process_datasets(
-        save_cleaned_data=args.save_cleaned_data,
-        relative_time=args.relative_time,
-        project_coords=args.project_coords,
+        save_cleaned_data=args.no_save_data,
+        relative_time=args.no_relative_time,
+        project_coords=args.no_project_coords,
         alt_median_abs_deviation=args.alt_median_abs_deviation,
-        fill=args.fill,
+        fill=args.no_fill,
     )
