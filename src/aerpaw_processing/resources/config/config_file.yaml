@@ -7,27 +7,31 @@ datasets:
     flights:
       - name: Yaw 315 Flight
         merge_col: ID
-        files:
-          LTE_4G:
-            - Ericsson_Amir/Dryad/yaw315/inputf1_cellid_with_header.csv
-            - Ericsson_Amir/Dryad/yaw315/inputf1_rsrp_with_header.csv
-            - Ericsson_Amir/Dryad/yaw315/inputf1_sinr_with_header.csv
-          NR_5G:
-            - Ericsson_Amir/Dryad/yaw315/inputf2_cellid_with_header.csv
-            - Ericsson_Amir/Dryad/yaw315/inputf2_cqi_with_header.csv
-            - Ericsson_Amir/Dryad/yaw315/inputf2_mcs_with_header.csv
-            - Ericsson_Amir/Dryad/yaw315/inputf2_ri_with_header.csv
-            - Ericsson_Amir/Dryad/yaw315/inputf2_rsrp_with_header.csv
-            - Ericsson_Amir/Dryad/yaw315/inputf2_sinr_with_header.csv
-            - Ericsson_Amir/Dryad/yaw315/input_throughput_with_header.csv
+        tech_list:
+          - name: LTE_4G
+            files:
+              - Ericsson_Amir/Dryad/yaw315/inputf1_cellid_with_header.csv
+              - Ericsson_Amir/Dryad/yaw315/inputf1_rsrp_with_header.csv
+              - Ericsson_Amir/Dryad/yaw315/inputf1_sinr_with_header.csv
+          - name: NR_5G
+            files:
+              - Ericsson_Amir/Dryad/yaw315/inputf2_cellid_with_header.csv
+              - Ericsson_Amir/Dryad/yaw315/inputf2_cqi_with_header.csv
+              - Ericsson_Amir/Dryad/yaw315/inputf2_mcs_with_header.csv
+              - Ericsson_Amir/Dryad/yaw315/inputf2_ri_with_header.csv
+              - Ericsson_Amir/Dryad/yaw315/inputf2_rsrp_with_header.csv
+              - Ericsson_Amir/Dryad/yaw315/inputf2_sinr_with_header.csv
+              - Ericsson_Amir/Dryad/yaw315/input_throughput_with_header.csv
       - name: Yaw 45 Flight
         merge_col: ID
-        files:
-          LTE_4G:
+        tech_list:
+          - name: LTE_4G
+            files:
             - Ericsson_Amir/Dryad/yaw45/inputf1_cellid_with_header.csv
             - Ericsson_Amir/Dryad/yaw45/inputf1_rsrp_with_header.csv
             - Ericsson_Amir/Dryad/yaw45/inputf1_sinr_with_header.csv
-          NR_5G:
+          - name: NR_5G
+            files:
             - Ericsson_Amir/Dryad/yaw45/inputf2_cellid_with_header.csv
             - Ericsson_Amir/Dryad/yaw45/inputf2_cqi_with_header.csv
             - Ericsson_Amir/Dryad/yaw45/inputf2_mcs_with_header.csv
@@ -43,9 +47,10 @@ datasets:
     description: "A UAV carrying a Samsung S21 Android Phone was flown in a trajectory approximating semi-circles around a private Ericsson AERPAW base station. The Android logged 4G cellular KPIs, and these logs were correlated with the UAV’s position based on timestamps. All cellular and position KPIs are merged in a single .csv file for convenient analysis."
     flights:
       - name: 4G LTE Flight
-        files:
-          LTE_4G:
-            - Logs/lte.csv
+        tech_list:
+          - name: LTE_4G
+            files:
+              - Logs/lte.csv
   - num: 24
     name: "Detailed Cellular and Throughput Measurements for Horizontal Sweeps of a UAV across a Private AERPAW Base Station, using Keysight Nemo and PawPrints"
     aerpaw_link: https://aerpaw.org/dataset/dataset-24-android-based-4g-lte-measurements-for-semi-circular-uav-trajectory-around-a-private-aerpaw-base-station/
@@ -56,41 +61,50 @@ datasets:
         link: https://ieeexplore.ieee.org/document/10632812
     flights:
       - name: Nemo 5G 30m Flight 1
-        files:
-          NR_5G:
-            - Logs/nemo_5G_NR_altitude30m_flight1.csv
+        tech_list:
+          - name: NR_5G
+            files:
+              - Logs/nemo_5G_NR_altitude30m_flight1.csv
       - name: Nemo 5G 30m Flight 2
-        files:
-          NR_5G:
+        tech_list:
+          - name: NR_5G
+            files:
             - Logs/nemo_5G_NR_altitude30m_flight2.csv
       - name: PawPrints 4G 30m Flight 1
-        files:
-          LTE_4G:
-            - Logs/pawprints_4G_LTE_altitude30m_flight1.csv
+        tech_list:
+          - name: LTE_4G
+            files:
+              - Logs/pawprints_4G_LTE_altitude30m_flight1.csv
       - name: PawPrints 4G 30m Flight 2
-        files:
-          LTE_4G:
-            - Logs/pawprints_4G_LTE_altitude30m_flight2.csv
+        tech_list:
+          - name: LTE_4G
+            files:
+              - Logs/pawprints_4G_LTE_altitude30m_flight2.csv
       - name: PawPrints 4G 50m Flight
-        files:
-          LTE_4G:
-            - Logs/pawprints_4G_LTE_altitude50m.csv
+        tech_list:
+          - name: LTE_4G
+            files:
+              - Logs/pawprints_4G_LTE_altitude50m.csv
       - name: PawPrints 5G 30m Flight 1
-        files:
-          NR_5G:
-            - Logs/pawprints_5G_NR_altitude30m_flight1.csv
+        tech_list:
+          - name: NR_5G
+            files:
+              - Logs/pawprints_5G_NR_altitude30m_flight1.csv
       - name: PawPrints 5G 30m Flight 2
-        files:
-          NR_5G:
-            - Logs/pawprints_5G_NR_altitude30m_flight2.csv
+        tech_list:
+          - name: NR_5G
+            files:
+              - Logs/pawprints_5G_NR_altitude30m_flight2.csv
       - name: PawPrints 5G 50m Flight
-        files:
-          NR_5G:
-            - Logs/pawprints_5G_NR_altitude50m.csv
+        tech_list:
+          - name: NR_5G
+            files:
+              - Logs/pawprints_5G_NR_altitude50m.csv
       - name: PawPrints iperf Throughput 30m Flight
-        files:
-          NR_5G:
-            - Logs/pawprints_iperf_throughput_altitude30m_flight1.csv
+        tech_list:
+          - name: NR_5G
+            files:
+              - Logs/pawprints_iperf_throughput_altitude30m_flight1.csv
 
 categories:
   - category: Location

@@ -1,8 +1,10 @@
 from aerpaw_processing.details import get_all_flight_details
-from aerpaw_processing.utils import load_config
 from aerpaw_processing.feature_analysis import graph_feature
+from aerpaw_processing.resources.config.config_init import CONFIG, load_env
 import os
 import pandas as pd
+
+load_env()
 
 script_path = os.path.realpath(__file__)
 script_directory = os.path.dirname(script_path)
@@ -14,7 +16,6 @@ def main():
         print("No flight details found.")
         return
     all_flight_details.load_all_analysis_data()
-    config = load_config()
 
     with open(
         os.path.join(script_directory, "../table_slide.tex"), "r"
@@ -45,7 +46,7 @@ def main():
         out_file.write(current_slide)
         out_file.write("\n\n")
 
-        for dataset in config.datasets:
+        for dataset in CONFIG.datasets:
             table_insert = all_flight_details.get_latex_dataset_summary(dataset.num)
             dataset_summary_title = f"Dataset {dataset.num} Summary"
 
@@ -65,7 +66,7 @@ def main():
     with open(
         os.path.join(script_directory, "correlation_slides.tex"), "w"
     ) as out_file:
-        for dataset in config.datasets:
+        for dataset in CONFIG.datasets:
             flight_list = [
                 flight.data
                 for flight in all_flight_details.flights[dataset.num].values()
