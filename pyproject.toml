@@ -27,7 +27,6 @@ dependencies = [
     "pyyaml",
     "datamodel-code-generator",
     "pyproj",
-    "tabulate",
     "torch"
 ]
 

@@ -1,5 +1,7 @@
 import pandas as pd
-from tabulate import tabulate
+from pathlib import Path
+import os
+import logging
 from aerpaw_processing.preprocessing.main import process_datasets
 from aerpaw_processing.preprocessing.utils import (
     get_flight_id,
@@ -9,6 +11,8 @@ from aerpaw_processing.preprocessing.utils import (
 from aerpaw_processing.resources.config.config_init import CONFIG, load_env
 
 load_env()
+
+logger = logging.getLogger(__name__)
 
 
 def analyze():
@@ -58,7 +62,14 @@ def analyze():
 
     df = pd.DataFrame(all_flight_details)
 
-    print(tabulate(df, headers="keys", tablefmt="grid", showindex=False))  # type: ignore
+    logger.info("Analysis output:\n%s", df)
+
+    current_dir = Path(__file__).resolve().parent
+    output_dir = os.path.join(current_dir, "analyze_output")
+    os.makedirs(output_dir, exist_ok=True)
+    df.to_csv(os.path.join(output_dir, "analysis.csv"), index=False)
+
+    logger.info("Analysis results saved to %s", output_dir)
 
 
 if __name__ == "__main__":
