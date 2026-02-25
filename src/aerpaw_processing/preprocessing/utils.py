@@ -121,7 +121,7 @@ def rename_tech_columns(
 
     tech_independent_cols = [col.name for col in CONFIG.categories[location_idx].cols]
 
-    tech_independent_cols.append(get_timestamp_col().name)
+    tech_independent_cols.append(get_timestamp_col())
 
     renamed_data = data.copy()
     for col in list(renamed_data.keys()):
@@ -135,7 +135,7 @@ def rename_tech_columns(
 
 
 def format_timestamp(data: pd.DataFrame) -> pd.DataFrame:
-    timestamp_col_name = get_timestamp_col().name
+    timestamp_col_name = get_timestamp_col()
 
     if timestamp_col_name not in data.columns:
         error = f"Timestamp column '{timestamp_col_name}' not found in data columns."
@@ -216,7 +216,7 @@ def filter_features(data: pd.DataFrame) -> pd.DataFrame:
 
 
 def convert_to_relative_time(data: pd.DataFrame) -> pd.DataFrame:
-    timestamp_col_name = get_timestamp_col().name
+    timestamp_col_name = get_timestamp_col()
 
     if timestamp_col_name not in data.columns:
         error = f"Timestamp column '{timestamp_col_name}' not found in data columns."
@@ -260,6 +260,54 @@ def project_coordinates(data: pd.DataFrame) -> pd.DataFrame:
     return data
 
 
+def get_median_abs_deviation(
+    data: pd.DataFrame, multiplier: float = 4.0
+) -> pd.DataFrame:
+    altitude_col = get_altitude_col()
+
+    if altitude_col not in data.columns:
+        error = f"Altitude column '{altitude_col}' not found in data columns."
+        logger.error(error)
+        raise ValueError(error)
+
+    try:
+        series = data[altitude_col]
+        median = series.median()
+        mad = (series - median).abs().median()
+        lower_bound = median - (multiplier * mad)
+        upper_bound = median + (multiplier * mad)
+        data = data[series.between(lower_bound, upper_bound)]
+    except Exception as e:
+        logger.error(f"Error calculating MAD for altitude: {e}")
+        raise
+
+    return data
+
+
+def get_flight_id(dataset_num: int, flight_name: str) -> str:
+    return f"Dataset_{dataset_num}_{flight_name.replace(' ', '_')}"
+
+
+def remove_duplicate_timestamps(data: pd.DataFrame) -> pd.DataFrame:
+
+    timestamp_col_name = get_timestamp_col()
+
+    if timestamp_col_name not in data.columns:
+        error = f"Timestamp column '{timestamp_col_name}' not found in data columns."
+        logger.error(error)
+        raise ValueError(error)
+
+    try:
+        data.drop_duplicates(subset=[timestamp_col_name], keep="first", inplace=True)
+    except Exception as e:
+        logger.error(
+            f"Error removing duplicate timestamps using column '{timestamp_col_name}': {e}"
+        )
+        raise
+
+    return data
+
+
 def get_timestamp_col():
     timestamp_cat_idx = [cat.category for cat in CONFIG.categories].index("Timestamp")
 
@@ -270,4 +318,8 @@ def get_timestamp_col():
 
     timestamp_col = CONFIG.categories[timestamp_cat_idx].cols[0]
 
-    return timestamp_col
+    return timestamp_col.name
+
+
+def get_altitude_col():
+    return "Altitude"

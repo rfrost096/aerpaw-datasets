@@ -26,7 +26,8 @@ dependencies = [
     "scikit-learn",
     "pyyaml",
     "datamodel-code-generator",
-    "pyproj"
+    "pyproj",
+    "tabulate"
 ]
 
 [project.scripts]

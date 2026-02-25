@@ -1,7 +1,7 @@
 import logging
 import pandas as pd
 import os
-from aerpaw_processing.preprocessing.step_tracker import StepTracker
+from aerpaw_processing.resources.step_tracker import StepTracker
 from aerpaw_processing.preprocessing.utils import (
     load_datasets,
     convert_columns,
@@ -11,6 +11,8 @@ from aerpaw_processing.preprocessing.utils import (
     filter_features,
     convert_to_relative_time,
     project_coordinates,
+    get_median_abs_deviation,
+    get_flight_id,
 )
 from aerpaw_processing.resources.config.config_init import CONFIG, load_env
 
@@ -21,9 +23,16 @@ logger = logging.getLogger(__name__)
 step = StepTracker()
 
 
-def main(relative_time: bool = False, project_coords: bool = False):
+def process_datasets(
+    save_cleaned_data: bool = True,
+    relative_time: bool = False,
+    project_coords: bool = False,
+    alt_median_abs_deviation: bool = False,
+):
 
     step.next_step()
+
+    data_dict: dict[int, dict[str, pd.DataFrame]] = {}
 
     for dataset in CONFIG.datasets:
         logger.debug(
@@ -142,16 +151,55 @@ def main(relative_time: bool = False, project_coords: bool = False):
                     f"{step.next_step()} Keeping longitude and latitude for flight: {flight.name}"
                 )
 
+            if alt_median_abs_deviation:
+                logger.debug(
+                    f"{step.next_step()} Filtering based on median absolute deviation for Altitude for flight: {flight.name}"
+                )
+                flight_data = get_median_abs_deviation(flight_data)
+            else:
+                logger.debug(
+                    f"{step.next_step()} Not filtering based on median absolute deviation for Altitude for flight: {flight.name}"
+                )
+
             logger.debug(
-                f"{step.next_step()} Saving cleaned data for flight: {flight.name}"
+                f"{step.next_step()} Enumerating data for flight: {flight.name}"
             )
 
-            output_path = str(os.path.join(os.getenv("DATASET_CLEAN_HOME"), f"dataset_{dataset.num}_{flight.name}.csv"))  # type: ignore
-            flight_data.to_csv(output_path, index=False)
+            flight_data.insert(0, "Index", range(0, len(flight_data)))
+
+            if save_cleaned_data:
+                logger.debug(
+                    f"{step.next_step()} Saving cleaned data for flight: {flight.name}"
+                )
+
+                output_dir = os.getenv("DATASET_CLEAN_HOME")
+
+                if output_dir is None:
+                    error = "Environment variable 'DATASET_CLEAN_HOME' is not set."
+                    logger.error(error)
+                    raise EnvironmentError(error)
+
+                os.makedirs(output_dir, exist_ok=True)
+
+                output_path = os.path.join(
+                    output_dir,
+                    get_flight_id(dataset.num, flight.name) + ".csv",
+                )
+                flight_data.to_csv(output_path, index=False)
+            else:
+                logger.debug(
+                    f"{step.next_step()} Not saving cleaned data for flight: {flight.name}"
+                )
+
+            if dataset.num not in data_dict:
+                data_dict[dataset.num] = {}
+            data_dict[dataset.num][flight.name] = flight_data
 
             step.exit_level()
         step.exit_level()
 
+    return data_dict
+
 
 if __name__ == "__main__":
-    main(True, True)
+    process_datasets(relative_time=True, project_coords=True)
