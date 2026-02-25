@@ -34,10 +34,10 @@ def analyze():
             timestamp_diffs: pd.Series[pd.Timedelta] = flight_data[
                 get_timestamp_col()
             ].diff()
-            timestamp_mean = timestamp_diffs.mean().total_seconds() * 1_000_000
-            timestamp_std = timestamp_diffs.std().total_seconds() * 1_000_000
+            timestamp_mean = timestamp_diffs.mean().total_seconds()
+            timestamp_std = timestamp_diffs.std().total_seconds()
 
-            flight_details["timestamp_mean_std_ns"] = (
+            flight_details["timestamp_mean_std_s"] = (
                 f"{timestamp_mean:.2f} ± {timestamp_std:.2f}"
             )
 
