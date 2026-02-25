@@ -28,6 +28,7 @@ def process_datasets(
     relative_time: bool = False,
     project_coords: bool = False,
     alt_median_abs_deviation: bool = False,
+    fill: bool = True,
 ):
 
     step.next_step()
@@ -166,6 +167,16 @@ def process_datasets(
             )
 
             flight_data.insert(0, "Index", range(0, len(flight_data)))
+
+            if fill:
+                flight_data = flight_data.ffill().bfill()
+                logger.debug(
+                    f"{step.next_step()} Filled data for flight: {flight.name}"
+                )
+            else:
+                logger.debug(
+                    f"{step.next_step()} Not filling data for flight: {flight.name}"
+                )
 
             if save_cleaned_data:
                 logger.debug(

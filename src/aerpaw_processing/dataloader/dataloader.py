@@ -1,9 +1,19 @@
 import logging
+import pandas as pd
 import torch
 from torch.utils.data import Dataset
 import os
-from aerpaw_processing.preprocessing.utils import get_flight_id, load_data
-from aerpaw_processing.resources.config.config_init import load_config
+import re
+from aerpaw_processing.preprocessing.utils import (
+    get_flight_id,
+    load_data,
+    get_timestamp_col,
+)
+from aerpaw_processing.resources.config.config_init import (
+    load_config,
+    TIMESTAMP_PATTERN,
+    TIMEDELTA_PATTERN,
+)
 
 load_config()
 
@@ -11,7 +21,7 @@ load_config()
 logger = logging.getLogger(__name__)
 
 
-class SignalDataset(Dataset):  # type: ignore
+class SignalDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
     def __init__(self, dataset_num: int, flight_name: str, label_col: str):
 
         flight_id = get_flight_id(dataset_num, flight_name) + ".csv"
@@ -37,7 +47,8 @@ class SignalDataset(Dataset):  # type: ignore
         label_candidates: list[str] = [
             col
             for col in data.columns
-            if col == label_col or col.startswith(label_col + "_")
+            if col.lower() == label_col.lower()
+            or col.lower().startswith(label_col.lower() + "_")
         ]
 
         if not label_candidates:
@@ -52,6 +63,24 @@ class SignalDataset(Dataset):  # type: ignore
         self.label_col = label_candidates[0]
 
         self.feature_cols = [col for col in data.columns if col != self.label_col]
+
+        timestamp_col = get_timestamp_col()
+        if timestamp_col in self.feature_cols:
+            valid_time = str(data[timestamp_col].iloc[data[timestamp_col].first_valid_index()])  # type: ignore
+            if re.match(TIMESTAMP_PATTERN, valid_time):
+                data[timestamp_col] = pd.to_datetime(
+                    data[timestamp_col], format="%Y-%m-%d %H:%M:%S.%f"
+                )
+                data[timestamp_col] = data[timestamp_col].astype("int64") // 10**9
+            elif re.match(TIMEDELTA_PATTERN, valid_time):
+                data[timestamp_col] = pd.to_timedelta(data[timestamp_col])
+                data[timestamp_col] = data[timestamp_col].dt.total_seconds()
+            else:
+                raise ValueError(
+                    f"Timestamp column '{timestamp_col}' has an unrecognized format: {valid_time}"
+                )
+
+        data = data.dropna(subset=[self.label_col] + self.feature_cols)
 
         self.features = torch.tensor(
             data[self.feature_cols].values, dtype=torch.float32

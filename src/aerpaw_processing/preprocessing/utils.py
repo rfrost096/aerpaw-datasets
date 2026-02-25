@@ -3,8 +3,13 @@ import pandas as pd
 import os
 from functools import reduce
 from pyproj import Proj
+import re
 from aerpaw_processing.resources.tower_locations import towers
-from aerpaw_processing.resources.config.config_init import CONFIG, load_env
+from aerpaw_processing.resources.config.config_init import (
+    CONFIG,
+    load_env,
+    TIMESTAMP_PATTERN,
+)
 
 load_env()
 
@@ -148,22 +153,16 @@ def format_timestamp(data: pd.DataFrame) -> pd.DataFrame:
         raise ValueError(error)
 
     try:
-        raw_col = data[timestamp_col_name]
+        val = data[timestamp_col_name].first_valid_index()
 
-        numeric_vals = pd.to_numeric(raw_col, errors="coerce")
-        is_numeric = numeric_vals.notna()
-
-        parsed_dates = pd.Series(index=raw_col.index, dtype="datetime64[ns]")
-
-        if is_numeric.any():
-            parsed_dates.loc[is_numeric] = pd.to_datetime(
-                numeric_vals[is_numeric], unit="ns"
+        if re.match(TIMESTAMP_PATTERN, str(data[timestamp_col_name].iloc[val])):  # type: ignore
+            data[timestamp_col_name] = pd.to_datetime(
+                data[timestamp_col_name], format="%Y-%m-%d %H:%M:%S.%f"
             )
-
-        if (~is_numeric).any():
-            parsed_dates.loc[~is_numeric] = pd.to_datetime(raw_col[~is_numeric])
-
-        data[timestamp_col_name] = parsed_dates
+        else:
+            data[timestamp_col_name] = pd.to_datetime(
+                data[timestamp_col_name], unit="ms"
+            )
 
     except Exception as e:
         logger.error(f"Error formatting timestamp column '{timestamp_col_name}': {e}")
