@@ -2,20 +2,12 @@ import pandas as pd
 from typing import Any
 from pathlib import Path
 import os
-from dotenv import load_dotenv, find_dotenv
-from aerpaw_processing.resources.config import Config
-import yaml
-from importlib import resources
 from functools import reduce
 
-load_dotenv(find_dotenv("config.env"))
+from aerpaw_processing.resources.config.config_class import Config
+from aerpaw_processing.resources.config.config_init import load_env
 
-
-def load_config() -> Config:
-    details = resources.files("aerpaw_processing.resources") / "config.yaml"
-
-    with details.open("r") as f:
-        return Config(**yaml.safe_load(f))
+load_env()
 
 
 def find_file(dataset_num: int, data_filenames: list[str]) -> list[str] | None:

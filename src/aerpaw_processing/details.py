@@ -1,30 +1,30 @@
 import pandas as pd
 from aerpaw_processing.utils import (
     find_file,
-    load_config,
     load_datasets,
     merge_datasets,
     convert_columns,
     merge_tech_datasets,
 )
-from aerpaw_processing.resources.config import Category
 import numpy as np
 from enum import Enum
 from pyproj import Geod
 from typing import Any
 import re
+from aerpaw_processing.resources.config.config_class import Category
+from aerpaw_processing.resources.config.config_init import CONFIG, load_env
+
+load_env()
 
 LONGITUDE_COLUMN_NAME = "Longitude"
 LATITUDE_COLUMN_NAME = "Latitude"
 ALTITUDE_COLUMN_NAME = "Altitude"
 TIMESTAMP_COLUMN_NAME = "Timestamp"
 
-config = load_config()
-
 signal_quality_category: Category
 location_category: Category
 
-for category in config.categories:
+for category in CONFIG.categories:
     if category.category == "Signal Quality":
         signal_quality_category = category
     if category.category == "Location":
@@ -408,7 +408,7 @@ def get_all_flight_details():
 
     flights: dict[int, dict[str, pd.DataFrame]] = {}
 
-    for dataset in config.datasets:
+    for dataset in CONFIG.datasets:
 
         for flight in dataset.flights:
 
@@ -430,7 +430,7 @@ def get_all_flight_details():
 
                     data_list = load_datasets(abs_path_list)
 
-                    data_list = convert_columns(data_list, config)
+                    data_list = convert_columns(data_list, CONFIG)
 
                     if len(data_list) > 1:
                         data[tech] = merge_datasets(data_list, "ID")

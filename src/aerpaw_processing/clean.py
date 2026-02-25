@@ -1,16 +1,13 @@
 """Clean AERPAW datasets by removing unimportant features."""
 
 import pandas as pd
-from aerpaw_processing.utils import (
-    load_config,
-)
+from pyproj import Proj
+import os
 from aerpaw_processing.tower_locations import towers
 from aerpaw_processing.details import get_all_flight_details
-from pyproj import Proj
-from dotenv import load_dotenv, find_dotenv
-import os
+from aerpaw_processing.resources.config.config_init import CONFIG, load_env
 
-load_dotenv(find_dotenv("config.env"))
+load_env()
 
 REQUESTED_FEATURES = [
     "Timestamp",
@@ -24,14 +21,13 @@ REQUESTED_FEATURES = [
 
 
 def clean_datasets(project_coords: bool = False, relative_time: bool = False):
-    config = load_config()
     flights = get_all_flight_details()
     if flights is None:
         print("No flight details found.")
         return
     flights.load_all_analysis_data()
 
-    for dataset in config.datasets:
+    for dataset in CONFIG.datasets:
         for flight_name, flight in flights.flights[dataset.num].items():
             df = flight.analysis_data
 

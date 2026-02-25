@@ -2,11 +2,13 @@ import pandas as pd
 import argparse
 import matplotlib.pyplot as plt
 from sklearn.feature_selection import mutual_info_regression
-from aerpaw_processing.utils import combine_datasets, find_file, load_config
+from aerpaw_processing.utils import combine_datasets, find_file
 
+from aerpaw_processing.resources.config.config_init import CONFIG, load_env
+
+load_env()
 
 DEFAULT_GRAPH = "pearson"
-config = load_config()
 
 
 def graph_feature(
@@ -59,7 +61,7 @@ def graph_feature(
         return None
 
     col_sort_order: list[str] = ["RSRP"]
-    for cat in config.categories:
+    for cat in CONFIG.categories:
         if cat.category != "Location":
             col_sort_order.extend([col.name for col in cat.cols])
 

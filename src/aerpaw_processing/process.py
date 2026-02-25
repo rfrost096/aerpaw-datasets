@@ -2,9 +2,11 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import argparse
-from dotenv import load_dotenv, find_dotenv
 from aerpaw_processing.tower_locations import Tower, towers
 from aerpaw_processing.utils import combine_datasets, find_file
+from aerpaw_processing.resources.config.config_init import load_env
+
+load_env()
 
 DEFAULT_GRAPH = "rsrp,rsrq"
 
@@ -12,8 +14,6 @@ GRAPH_OPTIONS = ["pci"]
 
 DEFAULT_TIME_COLUMN = "companion_abs_time"
 DEFAULT_NUM_BINS = 20
-
-load_dotenv(find_dotenv("config.env"))
 
 RELATIVE_TIME_PREFIX = "relative_"
 
