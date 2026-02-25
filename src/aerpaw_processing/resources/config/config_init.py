@@ -10,7 +10,7 @@ script_directory = os.path.dirname(script_path)
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(pathname)s:%(lineno)d - %(levelname)s - %(message)s",
+    format="%(asctime)s - %(levelname)s - %(message)s",
     handlers=[logging.StreamHandler()],
 )
 

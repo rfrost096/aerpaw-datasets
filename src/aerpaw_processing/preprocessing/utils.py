@@ -2,14 +2,13 @@ import logging
 import pandas as pd
 import os
 from functools import reduce
+from pyproj import Proj
+from aerpaw_processing.tower_locations import towers
 from aerpaw_processing.resources.config.config_init import CONFIG, load_env
-from aerpaw_processing.resources.config.config_class import Config
 
 load_env()
 
 logger = logging.getLogger(__name__)
-
-ignore_cols = {"ID", "Timestamp", "Longitude", "Latitude", "Altitude"}
 
 
 def load_datasets(dataset_num: int, filepaths: list[str]):
@@ -17,7 +16,7 @@ def load_datasets(dataset_num: int, filepaths: list[str]):
     data_list: list[pd.DataFrame] = []
 
     for path in filepaths:
-        dataset_path = os.getenv(f"DATASET_{dataset_num}_PATH")
+        dataset_path = os.getenv(f"DATASET_{dataset_num}_HOME")
 
         if dataset_path is None:
             logger.error(
@@ -27,7 +26,7 @@ def load_datasets(dataset_num: int, filepaths: list[str]):
                 f"Environment variable for dataset {dataset_num} path is not set."
             )
 
-        abs_path = dataset_path + path
+        abs_path = os.path.join(dataset_path, path)
 
         try:
             data = pd.read_csv(
@@ -51,15 +50,15 @@ def load_datasets(dataset_num: int, filepaths: list[str]):
 
 
 def convert_columns(
-    data_list: list[pd.DataFrame], config: Config
+    data_list: list[pd.DataFrame], merge_col: str | None
 ) -> list[pd.DataFrame]:
-    ordered_cols = [col.name for category in config.categories for col in category.cols]
+    ordered_cols = [col.name for category in CONFIG.categories for col in category.cols]
     result: list[pd.DataFrame] = []
 
     for data in data_list:
         for original_col in list(data.keys()):
             found = False
-            for category in config.categories:
+            for category in CONFIG.categories:
                 for col in category.cols:
                     if original_col in col.alias_list:
                         if col.name in data.columns:
@@ -67,37 +66,24 @@ def convert_columns(
                         else:
                             data.rename(columns={original_col: col.name}, inplace=True)
                         found = True
-                    elif original_col == col.name or original_col in ignore_cols:
+                    elif original_col == col.name or original_col == merge_col:
                         found = True
             if not found:
                 data.drop(columns=[original_col], inplace=True)
 
-        if "Timestamp" in data.columns:
-            data["Timestamp"] = pd.to_datetime(
-                data["Timestamp"], unit="ms", errors="coerce"
-            )
-
         sorted_cols = [col for col in ordered_cols if col in data.columns]
-        if "ID" in data.columns:
-            sorted_cols.append("ID")
+        if merge_col is not None and merge_col in data.columns:
+            sorted_cols.append(merge_col)
+        elif merge_col is not None:
+            error = f"Merge column '{merge_col}' not found in data columns."
+            logger.error(error)
+            raise ValueError(error)
         result.append(data[sorted_cols])
 
     return result
 
 
 def merge_datasets(dfs_list: list[pd.DataFrame], merge_col: str, how: str = "outer"):
-    """
-    Merges a list of pandas DataFrames based on a specific column.
-
-    Parameters:
-    - dfs_list (list): A list of pandas DataFrames to merge.
-    - merge_col (str): The name of the column to merge on.
-    - how (str): Type of merge to be performed ('inner', 'outer', 'left', 'right'). Default is 'outer'.
-
-    Returns:
-    - pd.DataFrame: A single merged DataFrame.
-    """
-
     def clean_merge(left: pd.DataFrame, right: pd.DataFrame):
         overlapping_cols = set(left.columns).intersection(set(right.columns)) - {
             merge_col
@@ -110,17 +96,178 @@ def merge_datasets(dfs_list: list[pd.DataFrame], merge_col: str, how: str = "out
     return merged_df
 
 
-def merge_tech_datasets(lte_4g: pd.DataFrame, nr_5g: pd.DataFrame):
+def rename_tech_columns(
+    data: pd.DataFrame, tech_name: str, merge_col: str | None, common_cols: set[str]
+) -> pd.DataFrame:
+    signal_quality_idx = [cat.category for cat in CONFIG.categories].index(
+        "Signal Quality"
+    )
 
-    for col in list(lte_4g.keys()):
-        if col not in ignore_cols:
-            lte_4g.rename(columns={col: f"{col} (4G LTE)"}, inplace=True)
-    for col in list(nr_5g.keys()):
-        if col not in ignore_cols:
-            nr_5g.rename(columns={col: f"{col} (5G NR)"}, inplace=True)
+    if signal_quality_idx == -1:
+        error = "Signal Quality category not found in configuration."
+        logger.error(error)
+        raise ValueError(error)
 
-    data = merge_datasets([lte_4g, nr_5g], "ID")
+    tech_dependent_cols = [
+        col.name for col in CONFIG.categories[signal_quality_idx].cols
+    ]
 
-    data.drop(columns=["ID"], inplace=True)
+    location_idx = [cat.category for cat in CONFIG.categories].index("Location")
+
+    if location_idx == -1:
+        error = "Location category not found in configuration."
+        logger.error(error)
+        raise ValueError(error)
+
+    tech_independent_cols = [col.name for col in CONFIG.categories[location_idx].cols]
+
+    tech_independent_cols.append(get_timestamp_col().name)
+
+    renamed_data = data.copy()
+    for col in list(renamed_data.keys()):
+
+        if (
+            col in tech_dependent_cols
+            or (col in common_cols and col not in tech_independent_cols)
+        ) and col != merge_col:
+            renamed_data.rename(columns={col: f"{col}_{tech_name}"}, inplace=True)
+    return renamed_data
+
+
+def format_timestamp(data: pd.DataFrame) -> pd.DataFrame:
+    timestamp_col_name = get_timestamp_col().name
+
+    if timestamp_col_name not in data.columns:
+        error = f"Timestamp column '{timestamp_col_name}' not found in data columns."
+        logger.error(error)
+        raise ValueError(error)
+
+    try:
+        raw_col = data[timestamp_col_name]
+
+        numeric_vals = pd.to_numeric(raw_col, errors="coerce")
+        is_numeric = numeric_vals.notna()
+
+        parsed_dates = pd.Series(index=raw_col.index, dtype="datetime64[ns]")
+
+        if is_numeric.any():
+            parsed_dates.loc[is_numeric] = pd.to_datetime(
+                numeric_vals[is_numeric], unit="ns"
+            )
+
+        if (~is_numeric).any():
+            parsed_dates.loc[~is_numeric] = pd.to_datetime(raw_col[~is_numeric])
+
+        data[timestamp_col_name] = parsed_dates
+
+    except Exception as e:
+        logger.error(f"Error formatting timestamp column '{timestamp_col_name}': {e}")
+        raise
 
     return data
+
+
+def filter_features(data: pd.DataFrame) -> pd.DataFrame:
+    req_categories = {"Timestamp", "Location"}
+    other_categories = {"Signal Quality"}
+
+    req_features = {
+        col.name
+        for category in CONFIG.categories
+        if category.category in req_categories
+        for col in category.cols
+    }
+    other_features = {
+        col.name
+        for category in CONFIG.categories
+        if category.category in other_categories
+        for col in category.cols
+    }
+
+    req_cols = [
+        data_col
+        for data_col in data.columns
+        if any(
+            data_col == col or data_col.startswith(f"{col}_") for col in req_features
+        )
+    ]
+    other_cols = [
+        data_col
+        for data_col in data.columns
+        if any(
+            data_col == col or data_col.startswith(f"{col}_") for col in other_features
+        )
+    ]
+
+    filtered_data = data[req_cols + other_cols].copy()
+
+    filtered_data.dropna(axis=1, how="all", inplace=True)
+
+    req_cols = [col for col in req_cols if col in filtered_data.columns]
+    other_cols = [col for col in other_cols if col in filtered_data.columns]
+
+    if req_cols:
+        filtered_data.dropna(subset=req_cols, how="any", inplace=True)
+
+    if other_cols:
+        filtered_data.dropna(subset=other_cols, how="all", inplace=True)
+
+    return filtered_data
+
+
+def convert_to_relative_time(data: pd.DataFrame) -> pd.DataFrame:
+    timestamp_col_name = get_timestamp_col().name
+
+    if timestamp_col_name not in data.columns:
+        error = f"Timestamp column '{timestamp_col_name}' not found in data columns."
+        logger.error(error)
+        raise ValueError(error)
+
+    try:
+        data_series: pd.Series[pd.Timestamp] = data[timestamp_col_name]
+
+        time_diff = data_series - data_series.iloc[0]
+
+        data[timestamp_col_name] = time_diff
+
+    except Exception as e:
+        logger.error(
+            f"Error converting to relative time using column '{timestamp_col_name}': {e}"
+        )
+        raise
+
+    return data
+
+
+def project_coordinates(data: pd.DataFrame) -> pd.DataFrame:
+    base_tower = towers[0]
+
+    local_proj = Proj(
+        proj="aeqd",
+        lat_0=base_tower.lat,
+        lon_0=base_tower.lon,
+        datum="WGS84",
+    )
+
+    data["Longitude"], data["Latitude"] = local_proj(
+        data["Longitude"].values, data["Latitude"].values
+    )
+
+    data.rename(
+        columns={"Longitude": "x", "Latitude": "y", "Altitude": "z"}, inplace=True
+    )
+
+    return data
+
+
+def get_timestamp_col():
+    timestamp_cat_idx = [cat.category for cat in CONFIG.categories].index("Timestamp")
+
+    if timestamp_cat_idx == -1:
+        error = "Timestamp column not found in Location category of configuration."
+        logger.error(error)
+        raise ValueError(error)
+
+    timestamp_col = CONFIG.categories[timestamp_cat_idx].cols[0]
+
+    return timestamp_col

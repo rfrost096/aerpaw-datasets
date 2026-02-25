@@ -100,14 +100,14 @@ datasets:
           - name: NR_5G
             files:
               - Logs/pawprints_5G_NR_altitude50m.csv
-      - name: PawPrints iperf Throughput 30m Flight
-        tech_list:
-          - name: NR_5G
-            files:
-              - Logs/pawprints_iperf_throughput_altitude30m_flight1.csv
+      # - name: PawPrints iperf Throughput 30m Flight
+      #   tech_list:
+      #     - name: NR_5G
+      #       files:
+      #         - Logs/pawprints_iperf_throughput_altitude30m_flight1.csv
 
 categories:
-  - category: Location
+  - category: Timestamp
     cols:
       - name: Timestamp
         description: The absolute date and time at which the measurement was recorded.
@@ -117,6 +117,8 @@ categories:
           - companion_abs_time_ms
           - abs_time
 
+  - category: Location
+    cols:
       - name: Longitude
         description: The east-west geographic coordinate of the device at the time of measurement.
         alias_list:
@@ -182,21 +184,19 @@ categories:
           - ta
           - Timing advance
 
-  - category: Extra Signal Quality
-    cols:
-      - name: CSI RSRP
+      - name: CSI_RSRP
         extended: Channel State Information Reference Signal Received Power
         description: The received power of CSI reference signals, used for beam management and link adaptation in NR.
         alias_list:
           - csi_rsrp
 
-      - name: CSI RSRQ
+      - name: CSI_RSRQ
         extended: Channel State Information Reference Signal Received Quality
         description: The quality of CSI reference signals, factoring in interference and noise for NR link assessment.
         alias_list:
           - csi_rsrq
 
-      - name: CSI SINR
+      - name: CSI_SINR
         extended: Channel State Information Signal-to-Interference-plus-Noise Ratio
         description: The signal-to-interference-plus-noise ratio derived from CSI measurements in NR networks.
         alias_list:
@@ -228,14 +228,14 @@ categories:
         alias_list:
           - NR RI
 
-      - name: iperf Throughput
+      - name: iperf_Throughput
         description: The network throughput measured by an iperf client during an active test session, typically in Mbps.
         alias_list:
           - iperf_client_mbps
 
   - category: Connection Status
     cols:
-      - name: Is Connected
+      - name: Is_Connected
         description: A boolean flag indicating whether the device has an active data connection to the network.
         alias_list:
           - is_connected
@@ -253,7 +253,7 @@ categories:
 
   - category: Network Identity
     cols:
-      - name: Cell ID
+      - name: Cell_ID
         description: The unique identifier of the serving cell to which the device is connected.
         alias_list:
           - LTE Cell ID
@@ -308,7 +308,7 @@ categories:
         alias_list:
           - modes
 
-      - name: NR Type
+      - name: NR_Type
         extended: New Radio Type
         description: Indicates whether the NR connection is operating in standalone (SA) or non-standalone (NSA) mode.
         alias_list:
@@ -316,17 +316,17 @@ categories:
 
   - category: Base Station
     cols:
-      - name: Base Station Distance
+      - name: Base_Station_Distance
         description: The estimated straight-line distance between the device and the serving base station.
         alias_list:
           - bs_distance
 
-      - name: Base Station Bearing
+      - name: Base_Station_Bearing
         description: The compass bearing from the device toward the serving base station.
         alias_list:
           - bs_bearing
 
-      - name: Base Station Elevation
+      - name: Base_Station_Elevation
         description: The elevation angle from the device up to the serving base station antenna.
         alias_list:
           - bs_elevation

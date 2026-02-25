@@ -23,6 +23,16 @@ class StepTracker:
             self.steps[-1] += 1
         return self._format()
 
+    def continue_step(self):
+        """Continue current step without incrementing (e.g., 1.1 to 1.1)."""
+        if not self.steps:
+            self.steps = [1]
+        return self._format()
+
+    def info(self):
+        """Return the current step string without modifying the step count."""
+        return "  " * len(self.steps) + "  "
+
     def _format(self):
         """Returns the current step string."""
-        return "Step " + ".".join(map(str, self.steps)) + ":"
+        return "  " * len(self.steps) + "Step " + ".".join(map(str, self.steps)) + ":"

@@ -1,10 +1,16 @@
 import logging
 import pandas as pd
+import os
 from aerpaw_processing.preprocessing.step_tracker import StepTracker
 from aerpaw_processing.preprocessing.utils import (
     load_datasets,
     convert_columns,
     merge_datasets,
+    rename_tech_columns,
+    format_timestamp,
+    filter_features,
+    convert_to_relative_time,
+    project_coordinates,
 )
 from aerpaw_processing.resources.config.config_init import CONFIG, load_env
 
@@ -15,72 +21,137 @@ logger = logging.getLogger(__name__)
 step = StepTracker()
 
 
-def main():
-    for dataset in CONFIG.datasets:
-        logger.info(f"Processing dataset: {dataset.name}")
-        logger.info(f"Number of flights: {len(dataset.flights)}")
+def main(relative_time: bool = False, project_coords: bool = False):
 
-        logger.info(f"{step.next_step()} Load dataset files")
+    step.next_step()
+
+    for dataset in CONFIG.datasets:
+        logger.debug(
+            f"{step.enter_level()} Load dataset files for dataset: {dataset.name}"
+        )
 
         for flight in dataset.flights:
-            logger.info(f"{step.enter_level()} Load files for flight: {flight.name}")
+            logger.debug(f"{step.enter_level()} Load files for flight: {flight.name}")
 
-            tech_data: dict[str, pd.DataFrame] = {}
+            flight_tech_data_dict: dict[str, pd.DataFrame] = {}
 
             for tech in flight.tech_list:
 
-                logger.info(
+                logger.debug(
                     f"{step.enter_level()} Load tech files for tech: {tech.name}"
                 )
 
-                data_list = load_datasets(dataset.num, tech.files)
+                tech_data_list = load_datasets(dataset.num, tech.files)
 
-                logger.info(
+                logger.debug(
                     f"{step.next_step()} Convert column names for tech: {tech.name}"
                 )
 
-                data_list = convert_columns(data_list, CONFIG)
+                tech_data_list = convert_columns(tech_data_list, flight.merge_col)
 
-                logger.info(
+                logger.debug(
                     f"{step.next_step()} Merge flight files for tech: {tech.name}"
                 )
 
-                data: pd.DataFrame
+                tech_data: pd.DataFrame
 
-                if len(data_list) > 1:
+                if len(tech_data_list) > 1:
                     if flight.merge_col is None:
                         error = f"Merge column not specified for flight {flight.name}, tech {tech.name} with multiple files."
                         logger.error(error)
                         raise ValueError(error)
-                    data = merge_datasets(data_list, flight.merge_col)
-                    logger.info(f"Merged files for tech: {tech.name}")
+                    tech_data = merge_datasets(tech_data_list, flight.merge_col)
+                    logger.debug(f"{step.info()}Merged files for tech: {tech.name}")
                 else:
-                    data = data_list[0]
-                    logger.info(f"Single file loaded for tech: {tech.name}")
+                    tech_data = tech_data_list[0]
+                    logger.debug(
+                        f"{step.info()}Single file loaded for tech: {tech.name}"
+                    )
 
-                tech_data[tech.name] = data
+                flight_tech_data_dict[tech.name] = tech_data
 
                 step.exit_level()
 
-            logger.info(f"{step.next_step()} Merge tech data for flight: {flight.name}")
+            flight_tech_data_list: list[pd.DataFrame] = []
 
-        logger.info(
-            "Step 1: Load dataset files for each flight and each flight technology"
-        )
+            common_cols: set[str] = set.intersection(  # type: ignore
+                *[set(data.columns) for data in flight_tech_data_dict.values()]
+            )
 
-        logger.info("Step 1: Merge dataset files for flights with multiple files")
+            for tech_name, flight_tech_data in flight_tech_data_dict.items():
 
-        for flight in dataset.flights:
-            for tech in flight.tech_list:
-                for tech in flight.tech_list:
-                    if len(tech.files) > 1:
-                        logger.info(
-                            f"Merging files for {tech.name} in flight {flight.name}"
-                        )
-                        tech.files
-                    else:
-                        tech.merged_data = pd.read_csv(tech.files[0])
+                logger.debug(f"{step.enter_level()} Rename tech columns: {flight.name}")
+
+                tech_data = rename_tech_columns(
+                    flight_tech_data, tech_name, flight.merge_col, common_cols
+                )
+
+                flight_tech_data_list.append(tech_data)
+
+                step.exit_level()
+
+            logger.debug(
+                f"{step.continue_step()} Merge tech data for flight: {flight.name}"
+            )
+
+            flight_data: pd.DataFrame
+
+            if len(flight_tech_data_list) > 1:
+
+                if flight.merge_col is None:
+                    error = f"Merge column not specified for flight {flight.name}, with multiple techs."
+                    logger.error(error)
+                    raise ValueError(error)
+
+                flight_data = merge_datasets(flight_tech_data_list, flight.merge_col)
+                logger.debug(f"{step.info()}Merged tech data for flight: {flight.name}")
+
+            else:
+                flight_data = flight_tech_data_list[0]
+                logger.debug(f"{step.info()}Single tech data for flight: {flight.name}")
+
+            logger.debug(
+                f"{step.next_step()} Format Timestamp data for flight: {flight.name}"
+            )
+
+            flight_data = format_timestamp(flight_data)
+
+            logger.debug(
+                f"{step.next_step()} Downselect data features for flight: {flight.name}"
+            )
+
+            flight_data = filter_features(flight_data)
+
+            if relative_time:
+                logger.debug(
+                    f"{step.next_step()} Convert Timestamp to relative time for flight: {flight.name}"
+                )
+                flight_data = convert_to_relative_time(flight_data)
+            else:
+                logger.debug(
+                    f"{step.next_step()}Keeping absolute Timestamp for flight: {flight.name}"
+                )
+
+            if project_coords:
+                logger.debug(
+                    f"{step.next_step()} Projecting coordinates for flight: {flight.name}"
+                )
+                flight_data = project_coordinates(flight_data)
+            else:
+                logger.debug(
+                    f"{step.next_step()} Keeping longitude and latitude for flight: {flight.name}"
+                )
+
+            logger.debug(
+                f"{step.next_step()} Saving cleaned data for flight: {flight.name}"
+            )
+
+            output_path = str(os.path.join(os.getenv("DATASET_CLEAN_HOME"), f"dataset_{dataset.num}_{flight.name}.csv"))  # type: ignore
+            flight_data.to_csv(output_path, index=False)
+
+            step.exit_level()
+        step.exit_level()
 
 
 if __name__ == "__main__":
-    main()
+    main(True, True)
