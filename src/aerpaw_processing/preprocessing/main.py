@@ -1,6 +1,7 @@
 import logging
 import pandas as pd
 import os
+import argparse
 from aerpaw_processing.resources.step_tracker import StepTracker
 from aerpaw_processing.preprocessing.utils import (
     load_datasets,
@@ -25,8 +26,8 @@ step = StepTracker()
 
 def process_datasets(
     save_cleaned_data: bool = True,
-    relative_time: bool = False,
-    project_coords: bool = False,
+    relative_time: bool = True,
+    project_coords: bool = True,
     alt_median_abs_deviation: bool = False,
     fill: bool = True,
 ):
@@ -213,4 +214,43 @@ def process_datasets(
 
 
 if __name__ == "__main__":
-    process_datasets(relative_time=True, project_coords=True)
+    parser = argparse.ArgumentParser(
+        description="Process datasets with options for relative time and coordinate projection."
+    )
+    parser.add_argument(
+        "--no_save_data",
+        action="store_false",
+        default=True,
+        help="Do not save the cleaned data to CSV files.",
+    )
+    parser.add_argument(
+        "--no_relative_time",
+        action="store_false",
+        default=True,
+        help="Do not convert timestamps to relative time.",
+    )
+    parser.add_argument(
+        "--no_project_coords",
+        action="store_false",
+        default=True,
+        help="Do not project coordinates to a different coordinate system.",
+    )
+    parser.add_argument(
+        "--alt_median_abs_deviation",
+        action="store_true",
+        help="Filter data based on median absolute deviation for altitude.",
+    )
+    parser.add_argument(
+        "--no_fill",
+        action="store_false",
+        default=True,
+        help="Do not fill missing data using forward and backward fill.",
+    )
+    args = parser.parse_args()
+    process_datasets(
+        save_cleaned_data=args.save_cleaned_data,
+        relative_time=args.relative_time,
+        project_coords=args.project_coords,
+        alt_median_abs_deviation=args.alt_median_abs_deviation,
+        fill=args.fill,
+    )
