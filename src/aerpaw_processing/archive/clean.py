@@ -3,8 +3,8 @@
 import pandas as pd
 from pyproj import Proj
 import os
-from aerpaw_processing.tower_locations import towers
-from aerpaw_processing.details import get_all_flight_details
+from aerpaw_processing.resources.tower_locations import towers
+from aerpaw_processing.archive.details import get_all_flight_details
 from aerpaw_processing.resources.config.config_init import CONFIG, load_env
 
 load_env()

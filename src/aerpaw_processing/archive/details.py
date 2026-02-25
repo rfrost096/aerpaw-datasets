@@ -1,5 +1,5 @@
 import pandas as pd
-from aerpaw_processing.utils import (
+from aerpaw_processing.archive.utils import (
     find_file,
     load_datasets,
     merge_datasets,
@@ -418,9 +418,9 @@ def get_all_flight_details():
                 file_list: list[str] | None = None
 
                 if tech == "LTE_4G":
-                    file_list = flight.files.LTE_4G
+                    file_list = flight.tech_list[0].files
                 elif tech == "NR_5G":
-                    file_list = flight.files.NR_5G
+                    file_list = flight.tech_list[1].files
 
                 if file_list is not None:
                     abs_path_list = find_file(dataset.num, file_list)

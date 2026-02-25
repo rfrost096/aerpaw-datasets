@@ -3,7 +3,7 @@ import pandas as pd
 import os
 from functools import reduce
 from pyproj import Proj
-from aerpaw_processing.tower_locations import towers
+from aerpaw_processing.resources.tower_locations import towers
 from aerpaw_processing.resources.config.config_init import CONFIG, load_env
 
 load_env()
@@ -29,11 +29,7 @@ def load_datasets(dataset_num: int, filepaths: list[str]):
         abs_path = os.path.join(dataset_path, path)
 
         try:
-            data = pd.read_csv(
-                abs_path,
-                na_values=["Unavailable"],
-                engine="pyarrow",
-            )
+            data = load_data(abs_path)
         except FileNotFoundError:
             logger.error(f"File not found: {abs_path}")
             raise
@@ -47,6 +43,15 @@ def load_datasets(dataset_num: int, filepaths: list[str]):
         data_list.append(data)
 
     return data_list
+
+
+def load_data(abs_path: str):
+    data = pd.read_csv(
+        abs_path,
+        na_values=["Unavailable"],
+        engine="pyarrow",
+    )
+    return data
 
 
 def convert_columns(

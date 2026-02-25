@@ -2,8 +2,8 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import argparse
-from aerpaw_processing.tower_locations import Tower, towers
-from aerpaw_processing.utils import combine_datasets, find_file
+from aerpaw_processing.resources.tower_locations import Tower, towers
+from aerpaw_processing.archive.utils import combine_datasets, find_file
 from aerpaw_processing.resources.config.config_init import load_env
 
 load_env()
@@ -213,8 +213,8 @@ def plot_kpi_temporal(
             hover_data=hover_extras,
         )
 
-        fig.layout.updatemenus[0].buttons[0].args[1]["frame"]["duration"] = 600
-        fig.layout.updatemenus[0].buttons[0].args[1]["transition"]["duration"] = 200
+        fig.layout.updatemenus[0].buttons[0].args[1]["frame"]["duration"] = 600  # type: ignore
+        fig.layout.updatemenus[0].buttons[0].args[1]["transition"]["duration"] = 200  # type: ignore
 
     fig.update_traces(marker=dict(size=3))
 

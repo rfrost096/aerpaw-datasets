@@ -2,7 +2,7 @@ import pandas as pd
 import argparse
 import matplotlib.pyplot as plt
 from sklearn.feature_selection import mutual_info_regression
-from aerpaw_processing.utils import combine_datasets, find_file
+from aerpaw_processing.archive.utils import combine_datasets, find_file
 
 from aerpaw_processing.resources.config.config_init import CONFIG, load_env
 
