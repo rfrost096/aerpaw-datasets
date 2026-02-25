@@ -16,7 +16,9 @@ def main():
     all_flight_details.load_all_analysis_data()
     config = load_config()
 
-    with open(os.path.join(script_directory, "table_slide.tex"), "r") as template_file:
+    with open(
+        os.path.join(script_directory, "../table_slide.tex"), "r"
+    ) as template_file:
         table_template = template_file.read()
 
     with open(os.path.join(script_directory, "summary_slides.tex"), "w") as out_file:
@@ -55,7 +57,9 @@ def main():
             out_file.write(current_slide)
             out_file.write("\n\n")
 
-    with open(os.path.join(script_directory, "graph_slide.tex"), "r") as template_file:
+    with open(
+        os.path.join(script_directory, "../graph_slide.tex"), "r"
+    ) as template_file:
         graph_template = template_file.read()
 
     with open(
@@ -68,9 +72,9 @@ def main():
             ]
             dfs = pd.concat(flight_list, ignore_index=True)
 
-            save_path = os.path.join(
-                script_directory, f"dataset_{dataset.num}_correlation.png"
-            )
+            img_filename = f"dataset_{dataset.num}_correlation.png"
+
+            save_path = os.path.join(script_directory, img_filename)
 
             graph_feature(
                 dfs,
@@ -83,7 +87,9 @@ def main():
                 "<<<INSERT_TITLE>>>", correlation_graph_title
             )
 
-            current_slide = current_slide.replace("<<<INSERT_IMAGE_PATH>>>", save_path)
+            current_slide = current_slide.replace(
+                "<<<INSERT_IMAGE_PATH>>>", "./" + img_filename
+            )
             out_file.write(current_slide)
             out_file.write("\n\n")
 
