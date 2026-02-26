@@ -1,0 +1,12 @@
+flight_id,columns,num_rows,timestamp_mean_std_s,distance_mean_std
+Dataset_18_Yaw_315_Flight,"Index, Timestamp, x, y, z, RSRP_LTE_4G, SINR_LTE_4G, RSRP_NR_5G, SINR_NR_5G",2898,0.27 ± 0.05,2.24 ± 0.93
+Dataset_18_Yaw_45_Flight,"Index, Timestamp, x, y, z, RSRP_LTE_4G, SINR_LTE_4G, RSRP_NR_5G, SINR_NR_5G",2949,0.27 ± 0.05,2.21 ± 1.01
+Dataset_22_4G_LTE_Flight,"Index, Timestamp, x, y, z, RSRP_LTE_4G, RSRQ_LTE_4G, RSSI_LTE_4G, TA_LTE_4G",2021,1.00 ± 0.00,2.22 ± 2.37
+Dataset_24_Nemo_5G_30m_Flight_1,"Index, Timestamp, x, y, z, RSRP_NR_5G, RSRQ_NR_5G, RSSI_NR_5G, SINR_NR_5G, TA_NR_5G",2057,0.51 ± 0.04,3.18 ± 2.30
+Dataset_24_Nemo_5G_30m_Flight_2,"Index, Timestamp, x, y, z, RSRP_NR_5G, RSRQ_NR_5G, RSSI_NR_5G, SINR_NR_5G, TA_NR_5G",2044,0.51 ± 0.04,3.20 ± 2.28
+Dataset_24_PawPrints_4G_30m_Flight_1,"Index, Timestamp, x, y, z, RSRP_LTE_4G, RSRQ_LTE_4G, RSSI_LTE_4G, RSSNR_LTE_4G, TA_LTE_4G",2421,1.00 ± 0.00,2.72 ± 4.29
+Dataset_24_PawPrints_4G_30m_Flight_2,"Index, Timestamp, x, y, z, RSRP_LTE_4G, RSRQ_LTE_4G, RSSI_LTE_4G, RSSNR_LTE_4G, TA_LTE_4G",2078,1.00 ± 0.00,3.17 ± 4.48
+Dataset_24_PawPrints_4G_50m_Flight,"Index, Timestamp, x, y, z, RSRP_LTE_4G, RSRQ_LTE_4G, RSSI_LTE_4G, RSSNR_LTE_4G, TA_LTE_4G",1533,1.00 ± 0.00,4.29 ± 4.73
+Dataset_24_PawPrints_5G_30m_Flight_1,"Index, Timestamp, x, y, z, RSRP_NR_5G, RSRQ_NR_5G, SINR_NR_5G",791,1.03 ± 0.32,8.27 ± 4.86
+Dataset_24_PawPrints_5G_30m_Flight_2,"Index, Timestamp, x, y, z, RSRP_NR_5G, RSRQ_NR_5G, SINR_NR_5G",731,1.12 ± 0.85,8.95 ± 9.06
+Dataset_24_PawPrints_5G_50m_Flight,"Index, Timestamp, x, y, z, RSRP_NR_5G, RSRQ_NR_5G, SINR_NR_5G",709,1.18 ± 1.12,9.28 ± 10.49

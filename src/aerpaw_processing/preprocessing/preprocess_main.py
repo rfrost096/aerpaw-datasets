@@ -3,7 +3,7 @@ import pandas as pd
 import os
 import argparse
 from aerpaw_processing.resources.step_tracker import StepTracker
-from aerpaw_processing.preprocessing.utils import (
+from aerpaw_processing.preprocessing.preprocess_utils import (
     load_datasets,
     convert_columns,
     merge_datasets,
@@ -14,6 +14,7 @@ from aerpaw_processing.preprocessing.utils import (
     project_coordinates,
     get_median_abs_deviation,
     get_flight_id,
+    get_index_col,
 )
 from aerpaw_processing.resources.config.config_init import CONFIG, load_env
 
@@ -186,7 +187,7 @@ def process_datasets(
                 f"{step.next_step()} Enumerating data for flight: {flight.name}"
             )
 
-            flight_data.insert(0, "Index", range(0, len(flight_data)))
+            flight_data.insert(0, get_index_col(), range(0, len(flight_data)))
 
             if fill:
                 flight_data = flight_data.ffill().bfill()

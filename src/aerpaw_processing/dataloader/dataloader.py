@@ -4,10 +4,11 @@ import torch
 from torch.utils.data import Dataset
 import os
 import re
-from aerpaw_processing.preprocessing.utils import (
+from aerpaw_processing.preprocessing.preprocess_utils import (
     get_flight_id,
     load_data,
     get_timestamp_col,
+    get_label_col,
 )
 from aerpaw_processing.resources.config.config_init import (
     load_config,
@@ -44,23 +45,7 @@ class SignalDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
 
         data = load_data(data_path)
 
-        label_candidates: list[str] = [
-            col
-            for col in data.columns
-            if col.lower() == label_col.lower()
-            or col.lower().startswith(label_col.lower() + "_")
-        ]
-
-        if not label_candidates:
-            raise ValueError(f"No label column found for '{label_col}'.")
-
-        if len(label_candidates) > 1:
-            logging.info(
-                f"Multiple label columns found for '{label_col}': {label_candidates}. "
-                "Using the first one."
-            )
-
-        self.label_col = label_candidates[0]
+        self.label_col = get_label_col(data, label_col)
 
         self.feature_cols = [col for col in data.columns if col != self.label_col]
 

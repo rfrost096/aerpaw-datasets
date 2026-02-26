@@ -122,12 +122,7 @@ def rename_tech_columns(
         col.name for col in CONFIG.categories[signal_quality_idx].cols
     ]
 
-    location_idx = [cat.category for cat in CONFIG.categories].index("Location")
-
-    if location_idx == -1:
-        error = "Location category not found in configuration."
-        logger.error(error)
-        raise ValueError(error)
+    location_idx = [cat.category for cat in CONFIG.categories].index(get_location_cat())
 
     tech_independent_cols = [col.name for col in CONFIG.categories[location_idx].cols]
 
@@ -172,7 +167,7 @@ def format_timestamp(data: pd.DataFrame) -> pd.DataFrame:
 
 
 def filter_features(data: pd.DataFrame) -> pd.DataFrame:
-    req_categories = {"Timestamp", "Location"}
+    req_categories = {get_timestamp_cat(), get_location_cat()}
     other_categories = {"Signal Quality"}
 
     req_features = {
@@ -325,5 +320,75 @@ def get_timestamp_col():
     return timestamp_col.name
 
 
+def get_timestamp_cat():
+    timestamp_cat_idx = [cat.category for cat in CONFIG.categories].index("Timestamp")
+
+    if timestamp_cat_idx == -1:
+        error = "Timestamp column not found in Location category of configuration."
+        logger.error(error)
+        raise ValueError(error)
+
+    return CONFIG.categories[timestamp_cat_idx].category
+
+
 def get_altitude_col():
     return "Altitude"
+
+
+def get_location_cat():
+    location_cat_idx = [cat.category for cat in CONFIG.categories].index("Location")
+
+    if location_cat_idx == -1:
+        error = "Location column not found in Location category of configuration."
+        logger.error(error)
+        raise ValueError(error)
+
+    return CONFIG.categories[location_cat_idx].category
+
+
+def get_index_col():
+    return "Index"
+
+
+def get_label_col(data: pd.DataFrame, label_col: str) -> str:
+    label_candidates: list[str] = [
+        col
+        for col in data.columns
+        if col.lower() == label_col.lower()
+        or col.lower().startswith(label_col.lower() + "_")
+    ]
+
+    if not label_candidates:
+        raise ValueError(f"No label column found for '{label_col}'.")
+
+    if len(label_candidates) > 1:
+        logging.info(
+            f"Multiple label columns found for '{label_col}': {label_candidates}. "
+            "Using the first one."
+        )
+
+    return label_candidates[0]
+
+
+def get_column_order(
+    exclude_category: list[str] | None = None, project_cords: bool = False
+) -> list[str]:
+    col_order: list[str] = []
+    for config_category in CONFIG.categories:
+        if exclude_category and config_category.category in exclude_category:
+            continue
+        for col in config_category.cols:
+            if col.name == get_index_col():
+                continue
+            if project_cords:
+                if col.name == "Longitude":
+                    col_order.append("x")
+                elif col.name == "Latitude":
+                    col_order.append("y")
+                elif col.name == "Altitude":
+                    col_order.append("z")
+                else:
+                    col_order.append(col.name)
+            else:
+                col_order.append(col.name)
+    return col_order
