@@ -32,4 +32,7 @@ dependencies = [
 
 [project.scripts]
 generate-kml = "aerpaw_processing.KMLPostProcessing.generate_kpi_kml:main"
-generate-graphs = "aerpaw_processing.archive.process:main"
+graph-mutual = "aerpaw_processing.graph.graph_main:graph_mutual"
+graph-avg-mutual = "aerpaw_processing.graph.graph_main:graph_avg_mutual"
+graph-label = "aerpaw_processing.graph.graph_main:graph_label"
+graph-label-temporal = "aerpaw_processing.graph.graph_main:graph_label_temporal"
