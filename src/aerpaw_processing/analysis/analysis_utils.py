@@ -8,63 +8,46 @@ from aerpaw_processing.resources.config.config_init import load_env
 
 load_env()
 
-
 logger = logging.getLogger(__name__)
 
 
 def get_columns(
     flight_dict: dict[str, pd.DataFrame], unique: bool = False
-) -> pd.Series[str]:
+) -> pd.Series:
     if unique:
-        columns: list[list[str]] = [
-            list(flight_data.columns) for flight_data in flight_dict.values()
-        ]
-        common_elements = set(columns[0]).intersection(*columns[1:])
-
-        unique_columns = [
-            ", ".join([col for col in df_cols if col not in common_elements])
-            for df_cols in columns
-        ]
-
-        return pd.Series(unique_columns, dtype="string")
-    else:
+        all_cols = [list(df.columns) for df in flight_dict.values()]
+        common = set(all_cols[0]).intersection(*all_cols[1:])
         return pd.Series(
-            [", ".join(flight_data.columns) for flight_data in flight_dict.values()],
+            [", ".join(c for c in cols if c not in common) for cols in all_cols],
             dtype="string",
         )
-
-
-def get_num_rows(flight_dict: dict[str, pd.DataFrame]) -> pd.Series[int]:
     return pd.Series(
-        [len(flight_data) for flight_data in flight_dict.values()],
-        dtype="int",
+        [", ".join(df.columns) for df in flight_dict.values()],
+        dtype="string",
     )
 
 
-def get_timestamp_mean_std(flight_dict: dict[str, pd.DataFrame]) -> pd.Series[str]:
+def get_num_rows(flight_dict: dict[str, pd.DataFrame]) -> pd.Series:
+    return pd.Series([len(df) for df in flight_dict.values()], dtype="int")
+
+
+def get_timestamp_mean_std(flight_dict: dict[str, pd.DataFrame]) -> pd.Series:
     results: list[str] = []
-    for _, flight_data in flight_dict.items():
-        data = flight_data.copy()
-        data = remove_duplicate_timestamps(data)
-        timestamp_diffs: pd.Series[pd.Timedelta] = data[get_timestamp_col()].diff()
-        timestamp_mean = timestamp_diffs.mean().total_seconds()
-        timestamp_std = timestamp_diffs.std().total_seconds()
-        results.append(f"{timestamp_mean:.2f} ± {timestamp_std:.2f}")
+    timestamp_col = get_timestamp_col()
+    for df in flight_dict.values():
+        data = remove_duplicate_timestamps(df.copy())
+        diffs = data[timestamp_col].diff()
+        mean = diffs.mean().total_seconds()  # type: ignore
+        std = diffs.std().total_seconds()  # type: ignore
+        results.append(f"{mean:.2f} ± {std:.2f}")
     return pd.Series(results, dtype="string")
 
 
-def get_distance_mean_std(flight_dict: dict[str, pd.DataFrame]) -> pd.Series[str]:
+def get_distance_mean_std(flight_dict: dict[str, pd.DataFrame]) -> pd.Series:
     results: list[str] = []
-    for _, flight_data in flight_dict.items():
-        distance_x = flight_data["x"].diff()
-        distance_y = flight_data["y"].diff()
-        distance_z = flight_data["z"].diff()
-
-        distance = (distance_x**2 + distance_y**2 + distance_z**2) ** 0.5
-
-        distance_mean = distance.mean()
-        distance_std = distance.std()
-
-        results.append(f"{distance_mean:.2f} ± {distance_std:.2f}")
-
+    for df in flight_dict.values():
+        distance = (
+            df["x"].diff() ** 2 + df["y"].diff() ** 2 + df["z"].diff() ** 2
+        ) ** 0.5
+        results.append(f"{distance.mean():.2f} ± {distance.std():.2f}")
     return pd.Series(results, dtype="string")
