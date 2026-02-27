@@ -1,5 +1,6 @@
 from collections import defaultdict
 import logging
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.feature_selection import mutual_info_regression
@@ -459,3 +460,427 @@ def combine_dfs_graph(
         )
 
     return combined, label_col
+
+
+# ---------------------------------------------------------------------------
+# Spatial RSRP Correlation (replicates Fig. 3 from the IEEE JSTEAP paper)
+# ---------------------------------------------------------------------------
+
+
+def _uav_to_spherical(
+    df: pd.DataFrame,
+) -> pd.DataFrame:
+    """Convert UAV positions to spherical coordinates relative to the BS.
+
+    Returns a copy of *df* with three new columns:
+      - ``d3D``   : 3-D Euclidean distance from the BS (metres)
+      - ``elev``  : elevation angle from BS horizontal plane (radians)
+      - ``azim``  : azimuth angle (radians, [0, 2π))
+    """
+    df = project_coordinates(df.copy())
+
+    dx = df["x"]
+    dy = df["y"]
+    dz = df["z"] - towers[0].alt
+
+    d3D = np.sqrt(dx**2 + dy**2 + dz**2)
+
+    with np.errstate(invalid="ignore"):
+        elev = np.where(d3D > 0, np.arcsin(np.clip(dz / d3D, -1.0, 1.0)), 0.0)
+    azim = (np.arctan2(dy, dx)) % (2 * np.pi)
+
+    out = df.copy()
+    out["d3D"] = d3D
+    out["elev"] = elev
+    out["azim"] = azim
+    return out
+
+
+def graph_spatial_rsrp_correlation(
+    df: pd.DataFrame,
+    label_col: str,
+    angular_bin_size_rad: float = 0.05,
+    radial_bin_size_m: float = 5.0,
+    title: str | None = None,
+    save_path: str | None = None,
+) -> pd.DataFrame:
+    """Plot average pairwise RSRP spatial correlation vs. radial separation.
+
+    Reproduces Figure 3 from the paper *AI-Enabled Wireless Propagation
+    Modeling and Radio Environment Maps for Aerial Wireless Networks*.
+
+    The algorithm:
+
+    1. **Angular Binning** – Convert UAV positions to spherical coordinates
+       centred at the base station (``towers[0]``).  Partition the sphere into
+       elevation × azimuth cells of width *angular_bin_size_rad* radians and
+       group all measurements that fall into the same cell.
+
+    2. **Correlation Computation** – Within each angular cell compute every
+       pairwise normalised correlation
+
+           r[m, n] = (Ωm − Ω̄)(Ωn − Ω̄) / σ²
+
+       where Ω̄ and σ² are the global mean and variance of *label_col*.
+       Each pair is then placed into a *radial-separation* bin of width
+       *radial_bin_size_m* metres, where radial separation is
+
+           Δd = |d3D(m) − d3D(n)|
+
+    3. **Statistical Aggregation** – Average all correlation values that fall
+       into each radial-separation bin.
+
+    The resulting figure mirrors the paper's Fig. 3: a dual-axis matplotlib
+    plot with the average correlation on the left y-axis (line) and the
+    number of contributing point-pairs on the right y-axis (bar).
+
+    Args:
+        df: DataFrame containing at least *label_col*, ``Latitude``,
+            ``Longitude``, and ``Altitude`` columns.
+        label_col: Name of the RSRP (or other signal) column to correlate.
+        angular_bin_size_rad: Angular cell size in radians (default 0.05,
+            matching the paper).
+        radial_bin_size_m: Width of each radial-separation histogram bin in
+            metres (default 5, matching the paper).
+        title: Optional plot title.  Defaults to
+            ``"Spatial Correlation of <label_col> (spherical)"``
+        save_path: If provided, save the figure here instead of showing it.
+
+    Returns:
+        A DataFrame with columns ``radial_separation_m``, ``avg_correlation``,
+        and ``num_pairs`` (one row per radial-separation bin) for downstream
+        inspection.
+    """
+    # ------------------------------------------------------------------
+    # 1. Drop rows with missing signal or location data
+    # ------------------------------------------------------------------
+    required_cols = [label_col, "Latitude", "Longitude", "Altitude"]
+    working = df[required_cols].dropna().reset_index(drop=True)
+
+    if working.empty:
+        raise ValueError(f"No valid rows found after dropping NaNs in {required_cols}.")
+
+    # ------------------------------------------------------------------
+    # 2. Compute spherical coordinates relative to the base station
+    # ------------------------------------------------------------------
+    working = _uav_to_spherical(working)
+
+    # ------------------------------------------------------------------
+    # 3. Global RSRP statistics (used for all pairwise correlations)
+    # ------------------------------------------------------------------
+    rsrp = working[label_col].to_numpy(dtype=float)
+    omega_bar = rsrp.mean()
+    sigma2 = rsrp.var()
+
+    if sigma2 == 0:
+        raise ValueError(
+            f"Zero variance in '{label_col}' – cannot compute correlation."
+        )
+
+    centered = rsrp - omega_bar  # (Ωm − Ω̄)
+
+    # ------------------------------------------------------------------
+    # 4. Angular binning
+    # ------------------------------------------------------------------
+    elev_bins = np.floor(working["elev"].to_numpy() / angular_bin_size_rad).astype(int)
+    azim_bins = np.floor(working["azim"].to_numpy() / angular_bin_size_rad).astype(int)
+    bin_keys = list(zip(elev_bins, azim_bins))
+
+    groups: dict[tuple[int, int], list[int]] = defaultdict(list)
+    for idx, key in enumerate(bin_keys):
+        groups[key].append(idx)
+
+    # ------------------------------------------------------------------
+    # 5. Pairwise correlation, binned by radial separation
+    # ------------------------------------------------------------------
+    d3D = working["d3D"].to_numpy(dtype=float)
+    max_sep = d3D.max()  # upper bound for bins
+    n_radial_bins = int(np.ceil(max_sep / radial_bin_size_m)) + 1
+
+    corr_sums = np.zeros(n_radial_bins, dtype=float)
+    corr_counts = np.zeros(n_radial_bins, dtype=int)
+
+    for indices in groups.values():
+        if len(indices) < 2:
+            continue
+        idx_arr = np.array(indices)
+        # Vectorised pairwise computation within the angular cell
+        cent_g = centered[idx_arr]  # shape (k,)
+        d3D_g = d3D[idx_arr]  # shape (k,)
+
+        # All unique pairs (i < j)
+        i_idx, j_idx = np.triu_indices(len(idx_arr), k=1)
+
+        pair_corr = (cent_g[i_idx] * cent_g[j_idx]) / sigma2
+        pair_sep = np.abs(d3D_g[i_idx] - d3D_g[j_idx])
+
+        bin_idx = np.floor(pair_sep / radial_bin_size_m).astype(int)
+        bin_idx = np.clip(bin_idx, 0, n_radial_bins - 1)
+
+        np.add.at(corr_sums, bin_idx, pair_corr)
+        np.add.at(corr_counts, bin_idx, 1)
+
+    # ------------------------------------------------------------------
+    # 6. Average per radial-separation bin
+    # ------------------------------------------------------------------
+    valid_mask = corr_counts > 0
+    avg_corr = np.where(valid_mask, corr_sums / corr_counts, np.nan)
+    bin_centres = (np.arange(n_radial_bins) + 0.5) * radial_bin_size_m
+
+    result_df = pd.DataFrame(
+        {
+            "radial_separation_m": bin_centres[valid_mask],
+            "avg_correlation": avg_corr[valid_mask],
+            "num_pairs": corr_counts[valid_mask],
+        }
+    )
+
+    # ------------------------------------------------------------------
+    # 7. Plot (dual y-axis, matching the paper's Fig. 3 style)
+    # ------------------------------------------------------------------
+    _, ax1 = plt.subplots(figsize=(7, 4))
+
+    x = result_df["radial_separation_m"].to_numpy()
+    y_corr = result_df["avg_correlation"].to_numpy()
+    y_count = result_df["num_pairs"].to_numpy()
+
+    # Right axis – number of pairs (salmon/pink bars, behind the line)
+    ax2 = ax1.twinx()
+    ax2.bar(
+        x,
+        y_count,
+        width=radial_bin_size_m * 0.9,
+        color="salmon",
+        alpha=0.45,
+        label="Num Points",
+        zorder=1,
+    )
+    ax2.set_ylabel("Num Points", fontsize=11)
+    ax2.set_ylim(bottom=0)
+
+    # Left axis – average correlation (blue line, on top)
+    ax1.plot(
+        x, y_corr, color="steelblue", linewidth=1.8, label="Avg Correlation", zorder=2
+    )
+    ax1.axhline(0, color="black", linewidth=0.6, linestyle="--")
+    ax1.set_ylim(-1.0, 1.0)
+    ax1.set_xlabel("Radial separation distance (m)", fontsize=11)
+    ax1.set_ylabel("Avg Correlation", fontsize=11)
+    ax1.set_zorder(ax2.get_zorder() + 1)
+    ax1.patch.set_visible(False)
+
+    # Legend – combine both axes
+    lines1, labels1 = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax1.legend(lines1 + lines2, labels1 + labels2, loc="upper right", fontsize=9)
+
+    plot_title = title or f"Spatial Correlation of {label_col} (spherical)"
+    plt.title(plot_title, fontsize=12)
+    plt.tight_layout()
+
+    _show_or_save_plt(save_path)
+
+    return result_df
+
+
+# ---------------------------------------------------------------------------
+# Fast-Fading Factor Correlation (replicates Fig. 4 from the IEEE JSTEAP paper)
+# ---------------------------------------------------------------------------
+
+
+def _fit_los_path_loss(d3D: np.ndarray, rsrp: np.ndarray) -> np.ndarray:
+    """Fit a log-distance LoS path loss model and return the fitted RSRP values.
+
+    Model:  RSRP_LoS(d) = α − β · log10(d)
+
+    A least-squares fit of *rsrp* against *log10(d3D)* is performed to
+    estimate the intercept α and slope β.  The fitted values are returned
+    so the caller can compute the residual fast-fading factor
+
+        ν = rsrp − RSRP_LoS(d)
+
+    Points where d3D ≤ 0 are excluded from the fit but are assigned the
+    intercept value (α) so the caller always receives an array of the same
+    length as *rsrp*.
+    """
+    valid = d3D > 0
+    log_d = np.log10(d3D[valid])
+    # Design matrix: [1, log10(d)] for intercept + slope
+    A = np.column_stack([np.ones(log_d.shape), log_d])
+    coeffs, _, _, _ = np.linalg.lstsq(A, rsrp[valid], rcond=None)
+    alpha, beta = coeffs
+
+    los_all = np.full_like(rsrp, alpha, dtype=float)
+    los_all[valid] = alpha + beta * log_d
+    return los_all
+
+
+def graph_fast_fading_correlation(
+    df: pd.DataFrame,
+    label_col: str,
+    window: int = 5,
+    radial_bin_size_m: float = 3.0,
+    fast_fading_col: str | None = None,
+    title: str | None = None,
+    save_path: str | None = None,
+) -> pd.DataFrame:
+    """Plot fast-fading factor correlation vs. spatial separation distance.
+
+    Reproduces Figure 4 from the paper *AI-Enabled Wireless Propagation
+    Modeling and Radio Environment Maps for Aerial Wireless Networks*.
+
+    **Algorithm**
+
+    1. **Fast-fading extraction** – If *fast_fading_col* is not supplied, a
+       log-distance LoS path loss model (``RSRP_LoS = α − β·log10(d3D)``) is
+       fitted to the data via least squares and subtracted from the measured
+       RSRP, yielding the residual fast-fading factor
+
+           ν = Ω − RSRP_LoS(d)
+
+       This mirrors the paper's ``ν = Ω − P_TX_SS − PL_LoS``.
+
+    2. **Rolling-window correlation** – For each sample *i*, the correlation
+       with each of the *window* preceding samples *m* ∈ {1, …, window} is
+       computed as
+
+           r[i, m] = (νᵢ · νᵢ₋ₘ) / σ²ν
+
+       where σ²ν is the variance of all fast-fading values in the dataset.
+
+    3. **Spatial binning** – Each (r[i,m], d3D(UAV_i, UAV_{i-m})) pair is
+       placed into a radial-separation bin of width *radial_bin_size_m* metres.
+
+    4. **Aggregation & plot** – Correlation values within each bin are
+       averaged and plotted as a line graph, matching the style of Fig. 4.
+
+    Args:
+        df: DataFrame containing at least *label_col*, ``Latitude``,
+            ``Longitude``, and ``Altitude`` columns, ordered chronologically.
+        label_col: The RSRP (or signal) column name.
+        window: Number of preceding samples to include in the rolling
+            correlation (default 5, matching the paper).
+        radial_bin_size_m: Spatial separation bin width in metres
+            (default 3, matching the paper).
+        fast_fading_col: Optional pre-computed fast-fading column name.
+            When provided the LoS fitting step is skipped entirely.
+        title: Optional plot title.
+        save_path: If provided, save the figure here instead of showing it.
+
+    Returns:
+        A DataFrame with columns ``spatial_separation_m``, ``avg_correlation``,
+        and ``num_pairs`` (one row per separation bin).
+    """
+    # ------------------------------------------------------------------
+    # 1. Drop rows with missing data and preserve chronological order
+    # ------------------------------------------------------------------
+    required_cols = [label_col, "Latitude", "Longitude", "Altitude"]
+    if fast_fading_col:
+        required_cols.append(fast_fading_col)
+
+    working = df[required_cols].dropna().reset_index(drop=True)
+
+    if len(working) < window + 1:
+        raise ValueError(
+            f"Not enough valid rows ({len(working)}) for a rolling window of {window}."
+        )
+
+    # ------------------------------------------------------------------
+    # 2. Compute 3-D UAV-to-UAV distances (not UAV-to-BS)
+    # ------------------------------------------------------------------
+    working = project_coordinates(working)
+
+    # Cartesian UAV positions (metres, origin = BS)
+    uav_x = working["x"]
+    uav_y = working["y"]
+    uav_z = working["z"] - towers[0].alt
+
+    # UAV-to-BS distance (needed for LoS fit)
+    d3D_bs = np.sqrt(uav_x**2 + uav_y**2 + uav_z**2)
+
+    # ------------------------------------------------------------------
+    # 3. Extract / compute fast-fading factor ν
+    # ------------------------------------------------------------------
+    rsrp = working[label_col].to_numpy(dtype=float)
+
+    if fast_fading_col:
+        nu = working[fast_fading_col].to_numpy(dtype=float)
+    else:
+        los_fitted = _fit_los_path_loss(d3D_bs, rsrp)
+        nu = rsrp - los_fitted
+
+    sigma2_nu = nu.var()
+    if sigma2_nu == 0:
+        raise ValueError(
+            "Zero variance in the fast-fading factor – cannot compute correlation."
+        )
+
+    # ------------------------------------------------------------------
+    # 4. Rolling-window pairwise correlation, binned by UAV-to-UAV separation
+    # ------------------------------------------------------------------
+    n = len(nu)
+    max_possible_sep = np.sqrt(
+        (uav_x.max() - uav_x.min()) ** 2
+        + (uav_y.max() - uav_y.min()) ** 2
+        + (uav_z.max() - uav_z.min()) ** 2
+    )
+    n_bins = int(np.ceil(max_possible_sep / radial_bin_size_m)) + 1
+
+    corr_sums = np.zeros(n_bins, dtype=float)
+    corr_counts = np.zeros(n_bins, dtype=int)
+
+    for i in range(window, n):
+        for m in range(1, window + 1):
+            j = i - m
+            # r[i, m] = (νᵢ · νᵢ₋ₘ) / σ²ν
+            r = (nu[i] * nu[j]) / sigma2_nu
+
+            # UAV-to-UAV 3-D separation
+            dx = uav_x[i] - uav_x[j]
+            dy = uav_y[i] - uav_y[j]
+            dz = uav_z[i] - uav_z[j]
+            sep = np.sqrt(dx**2 + dy**2 + dz**2)
+
+            bin_idx = min(int(sep / radial_bin_size_m), n_bins - 1)
+            corr_sums[bin_idx] += r
+            corr_counts[bin_idx] += 1
+
+    # ------------------------------------------------------------------
+    # 5. Average per bin
+    # ------------------------------------------------------------------
+    valid_mask = corr_counts > 0
+    avg_corr = np.where(valid_mask, corr_sums / corr_counts, np.nan)
+    bin_centres = (np.arange(n_bins) + 0.5) * radial_bin_size_m
+
+    result_df = pd.DataFrame(
+        {
+            "spatial_separation_m": bin_centres[valid_mask],
+            "avg_correlation": avg_corr[valid_mask],
+            "num_pairs": corr_counts[valid_mask],
+        }
+    )
+
+    # ------------------------------------------------------------------
+    # 6. Plot – single axis line chart matching Fig. 4 style
+    # ------------------------------------------------------------------
+    _, ax = plt.subplots(figsize=(7, 4))
+
+    x = result_df["spatial_separation_m"].to_numpy()
+    y = result_df["avg_correlation"].to_numpy()
+
+    ax.plot(x, y, marker="s", markersize=4, linewidth=1.8, color="steelblue")
+    ax.axhline(0, color="black", linewidth=0.6, linestyle="--")
+    ax.set_xlabel("Spatial separation distance (m)", fontsize=11)
+    ax.set_ylabel("Avg Correlation", fontsize=11)
+    ax.set_ylim(-0.2, 1.05)
+    ax.grid(axis="both", linestyle="--", alpha=0.4)
+
+    plot_title = (
+        title or f"Fast-Fading Correlation of {label_col} (rolling window={window})"
+    )
+    ax.set_title(plot_title, fontsize=12)
+    plt.tight_layout()
+
+    _show_or_save_plt(save_path)
+
+    return result_df

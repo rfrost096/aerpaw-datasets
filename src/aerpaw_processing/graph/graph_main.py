@@ -305,3 +305,115 @@ def graph_label_temporal():
         save_path=args.save_path,
         graph_towers=graph_towers,
     )
+
+
+def graph_spatial_rsrp_correlation():
+
+    all_flight_ids = get_all_flight_ids()
+
+    parser = argparse.ArgumentParser(
+        description="Graph spatial correlation of RSRP for a single flight.",
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    parser.add_argument(
+        "--flight-id",
+        type=str,
+        default=",".join(all_flight_ids[:2]),
+        help=(
+            f"Valid values: {', '.join(all_flight_ids)}\n"
+            f"(default: {','.join(all_flight_ids[:2])})"
+        ),
+    )
+    parser.add_argument(
+        "--label",
+        type=str,
+        default="RSRP",
+        help="Label column to graph (default: RSRP).",
+    )
+    parser.add_argument(
+        "--save-path",
+        type=str,
+        default=None,
+        help="Path to save the graph. If not provided, the graph is displayed instead.",
+    )
+
+    args = parser.parse_args()
+
+    flight_id: str = args.flight_id.strip()
+    if flight_id not in all_flight_ids:
+        parser.error(
+            f"Invalid flight ID: {flight_id}. "
+            f"Valid values: {', '.join(all_flight_ids)}"
+        )
+    label: str = args.label
+    save_path: str | None = args.save_path
+
+    data_dict = process_datasets(
+        save_cleaned_data=False,
+        relative_time=True,
+        project_coords=False,
+        alt_median_abs_deviation=True,
+    )
+
+    dataset_num, flight_name = get_dataset_and_flight_from_id(args.flight_id)
+    df = data_dict[dataset_num][flight_name]
+
+    label_col = get_label_col(df, label)
+
+    graph_utils.graph_spatial_rsrp_correlation(df, label_col, save_path=save_path)
+
+
+def graph_fast_fading_correlation():
+
+    all_flight_ids = get_all_flight_ids()
+
+    parser = argparse.ArgumentParser(
+        description="Graph fast fading correlation of RSRP for a single flight.",
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    parser.add_argument(
+        "--flight-id",
+        type=str,
+        default=",".join(all_flight_ids[:2]),
+        help=(
+            f"Valid values: {', '.join(all_flight_ids)}\n"
+            f"(default: {','.join(all_flight_ids[:2])})"
+        ),
+    )
+    parser.add_argument(
+        "--label",
+        type=str,
+        default="RSRP",
+        help="Label column to graph (default: RSRP).",
+    )
+    parser.add_argument(
+        "--save-path",
+        type=str,
+        default=None,
+        help="Path to save the graph. If not provided, the graph is displayed instead.",
+    )
+
+    args = parser.parse_args()
+
+    flight_id: str = args.flight_id.strip()
+    if flight_id not in all_flight_ids:
+        parser.error(
+            f"Invalid flight ID: {flight_id}. "
+            f"Valid values: {', '.join(all_flight_ids)}"
+        )
+    label: str = args.label
+    save_path: str | None = args.save_path
+
+    data_dict = process_datasets(
+        save_cleaned_data=False,
+        relative_time=True,
+        project_coords=False,
+        alt_median_abs_deviation=False,
+    )
+
+    dataset_num, flight_name = get_dataset_and_flight_from_id(args.flight_id)
+    df = data_dict[dataset_num][flight_name]
+
+    label_col = get_label_col(df, label)
+
+    graph_utils.graph_fast_fading_correlation(df, label_col, save_path=save_path)
