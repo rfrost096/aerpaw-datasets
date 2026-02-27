@@ -14,6 +14,28 @@ load_env()
 logger = logging.getLogger(__name__)
 
 
+def graph_mutual_helper(
+    flight_id: str,
+    label: str,
+    project_cords: bool,
+    save_path: str | None,
+):
+    data_dict = process_datasets(
+        save_cleaned_data=False, relative_time=True, project_coords=project_cords
+    )
+    dataset_num, flight_name = get_dataset_and_flight_from_id(flight_id)
+    df = data_dict[dataset_num][flight_name]
+
+    label_col = get_label_col(df, label)
+
+    graph_utils.graph_mutual_correlation(
+        df,
+        label_col=label_col,
+        project_cords=project_cords,
+        save_path=save_path,
+    )
+
+
 def graph_mutual():
     all_flight_ids = get_all_flight_ids()
 
@@ -58,21 +80,34 @@ def graph_mutual():
             f"Valid values: {', '.join(all_flight_ids)}"
         )
 
-    project_cords = not args.no_project_coords
+    graph_mutual_helper(
+        flight_id=args.flight_id,
+        label=args.label,
+        project_cords=not args.no_project_coords,
+        save_path=args.save_path,
+    )
 
+
+def graph_avg_mutual_helper(
+    project_cords: bool,
+    label: str = "RSRP",
+    save_path: str | None = None,
+):
     data_dict = process_datasets(
         save_cleaned_data=False, relative_time=True, project_coords=project_cords
     )
-    dataset_num, flight_name = get_dataset_and_flight_from_id(args.flight_id)
-    df = data_dict[dataset_num][flight_name]
+    df_list = [df for dataset in data_dict.values() for df in dataset.values()]
 
-    label_col = get_label_col(df, args.label)
+    if "rsrp" not in label.lower():
+        error = "Average mutual correlation is only implemented for RSRP. Please specify a label containing 'RSRP' or graph mutual correlation for individual flights instead."
+        logger.error(error)
+        raise ValueError(error)
 
-    graph_utils.graph_mutual_correlation(
-        df,
-        label_col=label_col,
+    graph_utils.graph_average_mutual_correlation(
+        df_list,
+        label=label,
         project_cords=project_cords,
-        save_path=args.save_path,
+        save_path=save_path,
     )
 
 
@@ -96,22 +131,42 @@ def graph_avg_mutual():
 
     args = parser.parse_args()
 
-    project_cords = not args.no_project_coords
-
-    data_dict = process_datasets(
-        save_cleaned_data=False, relative_time=True, project_coords=project_cords
-    )
-    df_list = [df for dataset in data_dict.values() for df in dataset.values()]
-
-    logger.info(
-        "Average mutual correlation only works with RSRP. Graphing correlation with RSRP."
-    )
-
-    graph_utils.graph_average_mutual_correlation(
-        df_list,
-        label="RSRP",
-        project_cords=project_cords,
+    graph_avg_mutual_helper(
+        project_cords=not args.no_project_coords,
         save_path=args.save_path,
+    )
+
+
+def graph_label_helper(
+    flight_ids: list[str],
+    label: str,
+    project_cords: bool,
+    filter_features: bool,
+    categorical: bool,
+    relative_time: bool,
+    graph_towers: bool,
+    alt_median_abs_deviation: bool,
+    save_path: str | None,
+):
+    data_dict = process_datasets(
+        save_cleaned_data=False,
+        filter_features_bool=filter_features,
+        relative_time=relative_time,
+        project_coords=project_cords,
+        alt_median_abs_deviation=alt_median_abs_deviation,
+    )
+
+    df, label_col = graph_utils.combine_dfs_graph(data_dict, flight_ids, label)
+
+    graph_utils.graph_label(
+        df,
+        label_col=label_col,
+        filter_features=filter_features,
+        categorical=categorical,
+        project_cords=project_cords,
+        graph_towers=graph_towers,
+        relative_time=relative_time,
+        save_path=save_path,
     )
 
 
@@ -191,29 +246,15 @@ def graph_label():
             f"Valid values: {', '.join(all_flight_ids)}"
         )
 
-    project_cords = not args.no_project_coords
-    relative_time = not args.no_relative_time
-    graph_towers = not args.no_graph_towers
-    categorical = not args.no_categorical
-
-    data_dict = process_datasets(
-        save_cleaned_data=False,
-        filter_features_bool=args.filter_features,
-        relative_time=relative_time,
-        project_coords=project_cords,
-        alt_median_abs_deviation=args.alt_median_deviation,
-    )
-
-    df, label_col = graph_utils.combine_dfs_graph(data_dict, flight_ids, args.label)
-
-    graph_utils.graph_label(
-        df,
-        label_col=label_col,
+    graph_label_helper(
+        flight_ids=flight_ids,
+        label=args.label,
+        project_cords=not args.no_project_coords,
         filter_features=args.filter_features,
-        categorical=categorical,
-        project_cords=project_cords,
-        graph_towers=graph_towers,
-        relative_time=relative_time,
+        categorical=not args.no_categorical,
+        relative_time=not args.no_relative_time,
+        graph_towers=not args.no_graph_towers,
+        alt_median_abs_deviation=args.alt_median_deviation,
         save_path=args.save_path,
     )
 
@@ -287,24 +328,64 @@ def graph_label_temporal():
     graph_towers = not args.no_graph_towers
     alt_median_deviation = not args.no_alt_median_deviation
 
+    graph_label_temporal_helper(
+        flight_ids=flight_ids,
+        label=args.label,
+        project_cords=project_cords,
+        alt_median_abs_deviation=alt_median_deviation,
+        relative_time=relative_time,
+        graph_towers=graph_towers,
+        save_path=args.save_path,
+    )
+
+
+def graph_label_temporal_helper(
+    flight_ids: list[str],
+    label: str,
+    project_cords: bool,
+    alt_median_abs_deviation: bool,
+    relative_time: bool,
+    graph_towers: bool,
+    save_path: str | None,
+):
     data_dict = process_datasets(
         save_cleaned_data=False,
         relative_time=relative_time,
         project_coords=project_cords,
-        alt_median_abs_deviation=alt_median_deviation,
+        alt_median_abs_deviation=alt_median_abs_deviation,
     )
 
-    df, label_col = graph_utils.combine_dfs_graph(data_dict, flight_ids, args.label)
+    df, label_col = graph_utils.combine_dfs_graph(data_dict, flight_ids, label)
 
     graph_utils.graph_label_temporal(
         df,
         label_col=label_col,
         project_cords=project_cords,
-        alt_median_abs_deviation=alt_median_deviation,
+        alt_median_abs_deviation=alt_median_abs_deviation,
         relative_time=relative_time,
-        save_path=args.save_path,
+        save_path=save_path,
         graph_towers=graph_towers,
     )
+
+
+def graph_spatial_rsrp_correlation_helper(
+    flight_id: str,
+    label: str,
+    save_path: str | None,
+):
+    data_dict = process_datasets(
+        save_cleaned_data=False,
+        relative_time=True,
+        project_coords=False,
+        alt_median_abs_deviation=True,
+    )
+
+    dataset_num, flight_name = get_dataset_and_flight_from_id(flight_id)
+    df = data_dict[dataset_num][flight_name]
+
+    label_col = get_label_col(df, label)
+
+    graph_utils.graph_spatial_rsrp_correlation(df, label_col, save_path=save_path)
 
 
 def graph_spatial_rsrp_correlation():
@@ -345,22 +426,32 @@ def graph_spatial_rsrp_correlation():
             f"Invalid flight ID: {flight_id}. "
             f"Valid values: {', '.join(all_flight_ids)}"
         )
-    label: str = args.label
-    save_path: str | None = args.save_path
 
+    graph_spatial_rsrp_correlation_helper(
+        flight_id=flight_id,
+        label=args.label,
+        save_path=args.save_path,
+    )
+
+
+def graph_fast_fading_correlation_helper(
+    flight_id: str,
+    label: str,
+    save_path: str | None,
+):
     data_dict = process_datasets(
         save_cleaned_data=False,
         relative_time=True,
         project_coords=False,
-        alt_median_abs_deviation=True,
+        alt_median_abs_deviation=False,
     )
 
-    dataset_num, flight_name = get_dataset_and_flight_from_id(args.flight_id)
+    dataset_num, flight_name = get_dataset_and_flight_from_id(flight_id)
     df = data_dict[dataset_num][flight_name]
 
     label_col = get_label_col(df, label)
 
-    graph_utils.graph_spatial_rsrp_correlation(df, label_col, save_path=save_path)
+    graph_utils.graph_fast_fading_correlation(df, label_col, save_path=save_path)
 
 
 def graph_fast_fading_correlation():
@@ -401,19 +492,9 @@ def graph_fast_fading_correlation():
             f"Invalid flight ID: {flight_id}. "
             f"Valid values: {', '.join(all_flight_ids)}"
         )
-    label: str = args.label
-    save_path: str | None = args.save_path
 
-    data_dict = process_datasets(
-        save_cleaned_data=False,
-        relative_time=True,
-        project_coords=False,
-        alt_median_abs_deviation=False,
+    graph_fast_fading_correlation_helper(
+        flight_id=flight_id,
+        label=args.label,
+        save_path=args.save_path,
     )
-
-    dataset_num, flight_name = get_dataset_and_flight_from_id(args.flight_id)
-    df = data_dict[dataset_num][flight_name]
-
-    label_col = get_label_col(df, label)
-
-    graph_utils.graph_fast_fading_correlation(df, label_col, save_path=save_path)

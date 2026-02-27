@@ -203,7 +203,10 @@ def graph_average_mutual_correlation(
         current_save_path: str | None = None
         if save_path:
             p = Path(save_path)
-            current_save_path = str(p.with_stem(f"{p.stem}_{target_label}"))
+            if len(label_cols) > 1:
+                current_save_path = str(p.with_stem(f"{p.stem}_{target_label}"))
+            else:
+                current_save_path = save_path
 
         _plot_mutual_correlation_bar(
             scores_series,
@@ -872,7 +875,7 @@ def graph_fast_fading_correlation(
     ax.axhline(0, color="black", linewidth=0.6, linestyle="--")
     ax.set_xlabel("Spatial separation distance (m)", fontsize=11)
     ax.set_ylabel("Avg Correlation", fontsize=11)
-    ax.set_ylim(-0.2, 1.05)
+    ax.set_ylim(-0.5, 1.05)
     ax.grid(axis="both", linestyle="--", alpha=0.4)
 
     plot_title = (
