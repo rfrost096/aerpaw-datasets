@@ -484,7 +484,7 @@ def _uav_to_spherical(
 
     dx = df["x"]
     dy = df["y"]
-    dz = df["z"] - towers[0].alt
+    dz = df["z"]
 
     d3D = np.sqrt(dx**2 + dy**2 + dz**2)
 
@@ -557,11 +557,13 @@ def graph_spatial_rsrp_correlation(
     # ------------------------------------------------------------------
     # 1. Drop rows with missing signal or location data
     # ------------------------------------------------------------------
-    required_cols = [label_col, "Latitude", "Longitude", "Altitude"]
-    working = df[required_cols].dropna().reset_index(drop=True)
+    # required_cols = [label_col, "Latitude", "Longitude", "Altitude"]
+    # working = df[required_cols].dropna().reset_index(drop=True)
 
-    if working.empty:
-        raise ValueError(f"No valid rows found after dropping NaNs in {required_cols}.")
+    working = df.copy()
+
+    # if working.empty:
+    #     raise ValueError(f"No valid rows found after dropping NaNs in {required_cols}.")
 
     # ------------------------------------------------------------------
     # 2. Compute spherical coordinates relative to the base station

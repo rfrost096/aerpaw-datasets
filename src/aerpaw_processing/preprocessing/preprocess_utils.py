@@ -4,6 +4,7 @@ import os
 from functools import reduce
 from pyproj import Proj
 import re
+import numpy as np
 from aerpaw_processing.resources.tower_locations import towers
 from aerpaw_processing.resources.config.config_init import (
     CONFIG,
@@ -206,7 +207,9 @@ def convert_to_relative_time(data: pd.DataFrame) -> pd.DataFrame:
     return data
 
 
-def project_coordinates(data: pd.DataFrame) -> pd.DataFrame:
+def project_coordinates(
+    data: pd.DataFrame, add_spherical: bool = False
+) -> pd.DataFrame:
     base_tower = towers[0]
     local_proj = Proj(
         proj="aeqd",
@@ -221,6 +224,16 @@ def project_coordinates(data: pd.DataFrame) -> pd.DataFrame:
     data.rename(
         columns={"Longitude": "x", "Latitude": "y", "Altitude": "z"}, inplace=True
     )
+
+    d3D = np.sqrt(data["x"] ** 2 + data["y"] ** 2 + data["z"] ** 2)
+
+    with np.errstate(invalid="ignore"):
+        elev = np.where(d3D > 0, np.arcsin(np.clip(data["z"] / d3D, -1.0, 1.0)), 0.0)
+    azim = (np.arctan2(data["y"], data["x"])) % (2 * np.pi)
+
+    data["d3D"] = d3D
+    data["elev"] = elev
+    data["azim"] = azim
     return data
 
 
@@ -294,6 +307,27 @@ def get_timestamp_cat() -> str:
 
 def get_location_cat() -> str:
     return _get_category("Location").category
+
+
+def verify_time_loc_cols(df: pd.DataFrame) -> None:
+    timestamp_col = get_timestamp_col()
+    location_cat = get_location_cat()
+
+    if timestamp_col not in df.columns:
+        msg = f"Timestamp column '{timestamp_col}' not found in DataFrame."
+        logger.error(msg)
+        raise ValueError(msg)
+
+    location_cols = [col.name for col in _get_category(location_cat).cols]
+    missing_location_cols = [col for col in location_cols if col not in df.columns]
+
+    if missing_location_cols:
+        msg = (
+            f"Missing location columns {missing_location_cols} "
+            f"in DataFrame. Expected columns: {location_cols}."
+        )
+        logger.error(msg)
+        raise ValueError(msg)
 
 
 def get_index_col() -> str:

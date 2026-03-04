@@ -1,5 +1,6 @@
 import argparse
 import logging
+from typing import Any
 from aerpaw_processing.preprocessing.preprocess_main import process_datasets
 from aerpaw_processing.preprocessing.preprocess_utils import (
     get_all_flight_ids,
@@ -137,16 +138,30 @@ def graph_avg_mutual():
     )
 
 
+graph_label_defaults: dict[str, Any] = {
+    "label": "RSRP",
+    "project_cords": True,
+    "filter_features": True,
+    "categorical": False,
+    "relative_time": True,
+    "graph_towers": True,
+    "alt_median_abs_deviation": False,
+    "add_spherical": False,
+    "save_path": None,
+}
+
+
 def graph_label_helper(
     flight_ids: list[str],
-    label: str,
-    project_cords: bool,
-    filter_features: bool,
-    categorical: bool,
-    relative_time: bool,
-    graph_towers: bool,
-    alt_median_abs_deviation: bool,
-    save_path: str | None,
+    label: str = graph_label_defaults["label"],
+    project_cords: bool = graph_label_defaults["project_cords"],
+    filter_features: bool = graph_label_defaults["filter_features"],
+    categorical: bool = graph_label_defaults["categorical"],
+    relative_time: bool = graph_label_defaults["relative_time"],
+    graph_towers: bool = graph_label_defaults["graph_towers"],
+    alt_median_abs_deviation: bool = graph_label_defaults["alt_median_abs_deviation"],
+    add_spherical: bool = graph_label_defaults["add_spherical"],
+    save_path: str | None = graph_label_defaults["save_path"],
 ):
     data_dict = process_datasets(
         save_cleaned_data=False,
@@ -154,6 +169,7 @@ def graph_label_helper(
         relative_time=relative_time,
         project_coords=project_cords,
         alt_median_abs_deviation=alt_median_abs_deviation,
+        add_spherical=add_spherical,
     )
 
     df, label_col = graph_utils.combine_dfs_graph(data_dict, flight_ids, label)
@@ -190,44 +206,50 @@ def graph_label():
     parser.add_argument(
         "--label",
         type=str,
-        default="PCI",
-        help="Label column to graph (default: PCI).",
+        default=graph_label_defaults["label"],
+        help=f"Label column to graph (default: {graph_label_defaults['label']}).",
     )
     parser.add_argument(
         "--no-project-coords",
         action="store_true",
-        default=False,
+        default=graph_label_defaults["project_cords"],
         help="Disable coordinate projection (default: projection enabled).",
+    )
+    parser.add_argument(
+        "--add-spherical",
+        action="store_true",
+        default=graph_label_defaults["add_spherical"],
+        help=f"Add spherical coordinates (default: {graph_label_defaults['add_spherical']}).",
     )
     parser.add_argument(
         "--alt-median-deviation",
         action="store_true",
-        default=False,
-        help="Use median absolute deviation for altitude filtering (default: False).",
+        default=graph_label_defaults["alt_median_abs_deviation"],
+        help=f"Use median absolute deviation for altitude filtering (default: {graph_label_defaults['alt_median_abs_deviation']}).",
     )
     parser.add_argument(
         "--no-relative-time",
         action="store_true",
-        default=False,
-        help="Use absolute timestamps instead of relative time (default: relative time enabled).",
+        default=graph_label_defaults["relative_time"],
+        help=f"Use absolute timestamps instead of relative time (default: {graph_label_defaults['relative_time']}).",
     )
     parser.add_argument(
         "--no-graph-towers",
         action="store_true",
-        default=False,
-        help="Disable tower overlay on the graph (default: towers enabled).",
+        default=graph_label_defaults["graph_towers"],
+        help=f"Disable tower overlay on the graph (default: {graph_label_defaults['graph_towers']}).",
     )
     parser.add_argument(
         "--filter-features",
         action="store_true",
-        default=False,
-        help="Enable feature filtering (default: False).",
+        default=graph_label_defaults["filter_features"],
+        help=f"Enable feature filtering (default: {graph_label_defaults['filter_features']}).",
     )
     parser.add_argument(
         "--no-categorical",
         action="store_true",
-        default=False,
-        help="Treat the label as continuous instead of categorical (default: categorical enabled).",
+        default=graph_label_defaults["categorical"],
+        help=f"Treat the label as continuous instead of categorical (default: {graph_label_defaults['categorical']}).",
     )
     parser.add_argument(
         "--save-path",
@@ -250,6 +272,7 @@ def graph_label():
         flight_ids=flight_ids,
         label=args.label,
         project_cords=not args.no_project_coords,
+        add_spherical=args.add_spherical,
         filter_features=args.filter_features,
         categorical=not args.no_categorical,
         relative_time=not args.no_relative_time,
@@ -287,6 +310,12 @@ def graph_label_temporal():
         action="store_true",
         default=False,
         help="Disable coordinate projection (default: projection enabled).",
+    )
+    parser.add_argument(
+        "--add-spherical",
+        action="store_true",
+        default=False,
+        help="Add spherical coordinates (default: False).",
     )
     parser.add_argument(
         "--no-alt-median-deviation",
@@ -327,6 +356,7 @@ def graph_label_temporal():
     relative_time = not args.no_relative_time
     graph_towers = not args.no_graph_towers
     alt_median_deviation = not args.no_alt_median_deviation
+    add_spherical = args.add_spherical
 
     graph_label_temporal_helper(
         flight_ids=flight_ids,
@@ -335,6 +365,7 @@ def graph_label_temporal():
         alt_median_abs_deviation=alt_median_deviation,
         relative_time=relative_time,
         graph_towers=graph_towers,
+        add_spherical=add_spherical,
         save_path=args.save_path,
     )
 
@@ -343,6 +374,7 @@ def graph_label_temporal_helper(
     flight_ids: list[str],
     label: str,
     project_cords: bool,
+    add_spherical: bool,
     alt_median_abs_deviation: bool,
     relative_time: bool,
     graph_towers: bool,
@@ -353,6 +385,7 @@ def graph_label_temporal_helper(
         relative_time=relative_time,
         project_coords=project_cords,
         alt_median_abs_deviation=alt_median_abs_deviation,
+        add_spherical=add_spherical,
     )
 
     df, label_col = graph_utils.combine_dfs_graph(data_dict, flight_ids, label)
@@ -377,7 +410,8 @@ def graph_spatial_rsrp_correlation_helper(
         save_cleaned_data=False,
         relative_time=True,
         project_coords=False,
-        alt_median_abs_deviation=True,
+        alt_median_abs_deviation=False,
+        fill=True,
     )
 
     dataset_num, flight_name = get_dataset_and_flight_from_id(flight_id)

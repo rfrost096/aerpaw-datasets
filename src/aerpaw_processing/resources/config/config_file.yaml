@@ -119,15 +119,15 @@ categories:
 
   - category: Location
     cols:
-      - name: Longitude
-        description: The east-west geographic coordinate of the device at the time of measurement.
-        alias_list:
-          - longitude
-
       - name: Latitude
         description: The north-south geographic coordinate of the device at the time of measurement.
         alias_list:
           - latitude
+  
+      - name: Longitude
+        description: The east-west geographic coordinate of the device at the time of measurement.
+        alias_list:
+          - longitude
 
       - name: Altitude
         description: The height of the device above sea level at the time of measurement.

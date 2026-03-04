@@ -31,6 +31,7 @@ def process_datasets(
     alt_median_abs_deviation: bool = False,
     fill: bool = True,
     save_cleaned_data: bool = True,
+    add_spherical: bool = False,
 ) -> dict[int, dict[str, pd.DataFrame]]:
     """
     Processes, cleans, and merges flight datasets based on configuration settings.
@@ -167,7 +168,7 @@ def process_datasets(
                 logger.debug(
                     f"{step.next_step()} Projecting coordinates for flight: {flight.name}"
                 )
-                flight_data = project_coordinates(flight_data)
+                flight_data = project_coordinates(flight_data, add_spherical)
             else:
                 logger.debug(
                     f"{step.next_step()} Keeping lon/lat for flight: {flight.name}"
