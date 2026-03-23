@@ -4,7 +4,7 @@ import yaml
 from dotenv import load_dotenv, find_dotenv
 from aerpaw_processing.resources.config.config_class import Config
 
-TIMESTAMP_PATTERN = r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}$"
+TIMESTAMP_PATTERN = r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+$"
 TIMEDELTA_PATTERN = r"^(\d+ days,?\s+)?\d{1,2}:\d{2}:\d{2}(\.\d+)?$"
 
 
