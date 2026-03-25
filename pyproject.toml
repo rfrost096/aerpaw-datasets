@@ -28,7 +28,8 @@ dependencies = [
     "datamodel-code-generator",
     "pyproj",
     "torch",
-    "kaleido"
+    "kaleido",
+    "debugpy"
 ]
 
 [project.scripts]

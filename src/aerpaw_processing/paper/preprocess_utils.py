@@ -1,4 +1,3 @@
-
 import pandas as pd
 import os
 import logging
@@ -13,8 +12,10 @@ logger = logging.getLogger(__name__)
 
 TECH_LIST = ["NR_5G", "LTE_4G"]
 
+
 class StepEnum(Enum):
     """All configured steps used for inter-step referencing"""
+
     READ_DATA = "read_data"
     RENAME_COLUMNS = "rename_columns"
     REMOVE_COLUMNS = "remove_columns"
@@ -22,9 +23,11 @@ class StepEnum(Enum):
     COMBINE_FLIGHT_TECHS = "combine_flight_techs"
     INTERPOLATE_TO_LABEL = "interpolate_to_label"
     PROJECT_COORDINATES = "project_coordinates"
+    MAD_FILTER = "mad_filter"
     CALCULATE_BIN = "calculate_bin"
     CORRELATION_COMPUTATION = "correlation_computation"
     FAST_FADING_CORRELATION = "fast_fading_correlation"
+
 
 def add_step_entry(step: StepEnum, step_data: pd.DataFrame, context: pd.DataFrame):
     """Add a processing step entry to working context.
@@ -58,12 +61,13 @@ def get_step_entry(step: StepEnum, context: pd.DataFrame) -> pd.DataFrame:
 def get_col_tech_name(col: str, tech: str):
     return f"{col}_{tech}"
 
+
 def get_label_col(df_iter, label: str = "RSRP"):
     candidates: list[str] = [label]
     candidates.extend([get_col_tech_name(label, tech) for tech in TECH_LIST])
     for potential_col in candidates:
         if potential_col in df_iter.columns:
-            return potential_col 
+            return potential_col
     return None
 
 
@@ -73,11 +77,14 @@ def get_tech_independent_cols():
     for cat in CONFIG.categories:
         if cat.category in ("Timestamp", "Location", "Base Station"):
             tech_independent_cols.extend([col.name for col in cat.cols])
-    
+
     return tech_independent_cols
 
 
-def get_alias_map():
+SIGNAL_ONLY_FIELDS = ["Timestamp", "Location", "Signal Quality"]
+
+
+def get_alias_map(signal_only: bool):
     """Get a map that connects column alias names to the same processing name.
 
     The CONFIG file has a list of column categories, which each have a list of
@@ -89,6 +96,13 @@ def get_alias_map():
     naming scheme so they are easily comparable and can be operated on by the same
     functions.
 
+    The map is also used to remove unnecessary columns from the datasets. If the
+    signal_only flag is set, it will only include SIGNAL_ONLY_FIELDS, which are
+    the most relevant for analysis.
+
+    Params:
+        signal_only (bool): set to True to only include signal columns in map
+
     Returns:
         dict[str, str]: A map where each key = possible alias for value = standardized
         name
@@ -96,12 +110,14 @@ def get_alias_map():
     alias_map: dict[str, str] = {}
     for category in CONFIG.categories:
         for col in category.cols:
-            for alias in col.alias_list:
-                alias_map[alias] = col.name
-            alias_map[col.name] = col.name
+            if not signal_only or (
+                signal_only and category.category in SIGNAL_ONLY_FIELDS
+            ):
+                for alias in col.alias_list:
+                    alias_map[alias] = col.name
+                alias_map[col.name] = col.name
 
     return alias_map
-
 
 
 def get_col_categorical_map():
@@ -113,7 +129,9 @@ def get_col_categorical_map():
         for col in cat.cols:
             if col.name not in tech_ind_cols:
                 for tech in TECH_LIST:
-                    col_categorical_map[get_col_tech_name(col.name, tech)] = col.categorical
+                    col_categorical_map[get_col_tech_name(col.name, tech)] = (
+                        col.categorical
+                    )
             else:
                 col_categorical_map[col.name] = col.categorical
     return col_categorical_map
