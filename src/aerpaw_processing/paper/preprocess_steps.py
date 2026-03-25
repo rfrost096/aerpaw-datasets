@@ -640,13 +640,13 @@ def calculate_correlation(context: pd.DataFrame, label_col: str = LABEL_COL):
 
 
 def calculate_fast_fading_correlation(
-    context: pd.DataFrame, label_col: str = LABEL_COL
+        context: pd.DataFrame, step_list: list[StepEnum], label_col: str = LABEL_COL
 ):
     """Fast fading factor correlation in spatio-temporal domain.
 
     Section II.B.2 in AI-Enabled Wireless Propagation Modeling and Radio Environment Maps for 5G Aerial Wireless Networks.
     """
-    working: pd.DataFrame = get_step_entry(StepEnum.PROJECT_COORDINATES, context)
+    working: pd.DataFrame = get_step_entry(step_list[-1], context)
 
     new_rows = []
 
@@ -828,7 +828,7 @@ def calculate_fast_fading_correlation(
 
 def save_datasets(context: pd.DataFrame, step_list: list[StepEnum]):
     cleaned_home = Path(get_env_var("DATASET_CLEAN_HOME"))
-    working = get_step_entry(StepEnum.PROJECT_COORDINATES, context)
+    working = get_step_entry(step_list[-1], context)
 
     for _, row in working.iterrows():
         cast(pd.DataFrame, row["data"]).to_csv(
@@ -875,7 +875,7 @@ def run(
 
     calculate_correlation(context, label_col)
 
-    calculate_fast_fading_correlation(context, label_col)
+    calculate_fast_fading_correlation(context, step_list, label_col)
 
     save_datasets(context, step_list)
 
