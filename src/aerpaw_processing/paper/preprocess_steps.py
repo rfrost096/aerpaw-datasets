@@ -390,18 +390,18 @@ def mean_abs_deviation_filter(context: pd.DataFrame, step_list: list[StepEnum]):
 
     working: pd.DataFrame = get_step_entry(step_list[-1], context)
 
-    median_alt = working["Altitude"].median()
+    def apply_mad_filter(df):
+        median_alt = df["Altitude"].median()
 
-    mad_alt = (working["Altitude"] - median_alt).abs().median()
+        mad_alt = (df["Altitude"] - median_alt).abs().median()
 
-    threshold_multiplier = 3
+        threshold_multiplier = 3
 
-    working = cast(
-        pd.DataFrame,
-        working[
-            (working["Altitude"] - median_alt).abs() <= (threshold_multiplier * mad_alt)
-        ],
-    )
+        return df[
+            (df["Altitude"] - median_alt).abs() <= (threshold_multiplier * mad_alt)
+        ]
+
+    working["data"] = working["data"].apply(apply_mad_filter)
 
     step_list.append(StepEnum.MAD_FILTER)
 
