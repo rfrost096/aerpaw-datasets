@@ -1,134 +1,203 @@
-import logging
+import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader
-import numpy as np
-import torch
+from torch.utils.data import DataLoader, random_split
 
-from aerpaw_processing.paper.dataloader import SignalDataset
-from aerpaw_processing.resources.config.config_init import load_config
-
-load_config()
+from aerpaw_processing.paper.dataloader import UAVFlightDataset
+from aerpaw_processing.paper.preprocess_utils import DatasetConfig
 
 
-logger = logging.getLogger(__name__)
+class InceptionBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, inception_dim=1):
+        super().__init__()
+        
+        if inception_dim == 1:
+            Conv = nn.Conv1d
+            MaxPool = nn.MaxPool1d
+        elif inception_dim == 2:
+            Conv = nn.Conv2d
+            MaxPool = nn.MaxPool2d
+        elif inception_dim == 3:
+            Conv = nn.Conv3d
+            MaxPool = nn.MaxPool3d
+        else:
+            raise ValueError("inception_dim must be 1, 2, or 3")
 
-# LoS PL Model Constants (Section II & IV-A)
-C = 299792458  # Speed of light (m/s)
-FC = 3.4e9     # Center frequency (Hz) for n77 band
-PT_DBM = 10.0  # Total transmit power (dBm)
-N_PRB = 273    # Number of physical resource blocks for 100MHz bandwidth
-N_SC = 12      # Number of subcarriers per resource block
-BS_HEIGHT = 10.0 # Base Station height (m)
+        # 1x1 conv branch
+        self.branch1 = Conv(in_channels, out_channels, kernel_size=1)
+        
+        # 3x3 conv branch
+        self.branch2 = nn.Sequential(
+            Conv(in_channels, out_channels, kernel_size=1),
+            nn.ReLU(),
+            Conv(out_channels, out_channels, kernel_size=3, padding=1)
+        )
+        
+        # 5x5 conv branch
+        self.branch3 = nn.Sequential(
+            Conv(in_channels, out_channels, kernel_size=1),
+            nn.ReLU(),
+            Conv(out_channels, out_channels, kernel_size=5, padding=2)
+        )
+        
+        # max pool branch
+        self.branch4 = nn.Sequential(
+            MaxPool(kernel_size=3, stride=1, padding=1),
+            Conv(in_channels, out_channels, kernel_size=1)
+        )
 
-def calculate_deterministic_rsrp(x, y, z):
-    """
-    Calculate deterministic RSRP based on the LoS Path Loss model (Eq. 4 & 5).
-    
-    Args:
-        x, y, z: Coordinates relative to the launch point (m).
-                 BS is assumed to be at (0, 0, BS_HEIGHT).
-    """
-    # 1. Distances and Angles (Eq. 1)
-    dh = np.sqrt(x**2 + y**2)
-    dv = np.abs(z - BS_HEIGHT)
-    d3d = np.sqrt(dh**2 + dv**2)
-    
-    # Avoid division by zero
-    d3d = np.clip(d3d, 1e-6, None)
-    
-    # Elevation and Azimuth (for antenna gain patterns)
-    theta_l = np.arctan2(dh, z - BS_HEIGHT) # Angle from vertical
-    phi_l = np.arctan2(y, x)                # Azimuth angle
-    
-    # 2. Transmit Power per SS resource element (Eq. 5)
-    ptx_ss_dbm = PT_DBM - 10 * np.log10(N_PRB * N_SC)
-    
-    # 3. LoS Path Loss (Eq. 4)
-    # PL_LoS = 20*log10(c/4*pi) - 20*log10(fc) - 20*log10(d3d) + G_bs + G_uav
-    # Note: We assume G_uav = 0 dBi and a simple directional G_bs for this implementation
-    
-    # Simplified directional BS antenna gain (120-degree beamwidth)
-    phi_3db = 120 * (np.pi / 180)
-    g_max_bs = 14.0 # Typical gain in dBi
-    g_bs = g_max_bs - np.minimum(12 * (phi_l / phi_3db)**2, 20.0) # 20dB front-to-back ratio
-    
-    # Constant part of Friis Equation
-    pl_const = 20 * np.log10(C / (4 * np.pi)) - 20 * np.log10(FC)
-    
-    pl_los_db = pl_const - 20 * np.log10(d3d) + g_bs
-    
-    # 4. SS-RSRP (Eq. 5)
-    rsrp_deterministic = ptx_ss_dbm + pl_los_db
-    
-    return rsrp_deterministic
+    def forward(self, x):
+        out1 = self.branch1(x)
+        out2 = self.branch2(x)
+        out3 = self.branch3(x)
+        out4 = self.branch4(x)
+        return torch.relu(torch.cat([out1, out2, out3, out4], dim=1))
 
-def test_training_loop():
-    dataset = SignalDataset(
-        dataset_num=18, flight_name="Yaw 45 Flight", label_col="RSRP_NR_5G"
-    )
 
+class InceptionModel(nn.Module):
+    def __init__(self, in_channels, inception_dim=1):
+        super().__init__()
+        self.inception1 = InceptionBlock(in_channels, 8, inception_dim)
+        self.inception2 = InceptionBlock(8 * 4, 16, inception_dim)
+        
+        self.flatten = nn.Flatten()
+        # 16 * 4 channels = 64
+        self.fc = nn.Sequential(
+            nn.Linear(64, 64),
+            nn.ReLU(),
+            nn.Linear(64, 1)
+        )
+
+    def forward(self, x):
+        x = self.inception1(x)
+        x = self.inception2(x)
+        x = self.flatten(x)
+        return self.fc(x)
+
+
+class LineOfSightPathLossModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        # Simple linear layer to model RSRP = A - B * log10(d)
+        self.linear = nn.Linear(1, 1)
+
+    def forward(self, x):
+        return self.linear(x)
+
+
+class CombinedFlightModel(nn.Module):
+    def __init__(self, in_channels, inception_dim=1):
+        super().__init__()
+        self.inception = InceptionModel(in_channels, inception_dim)
+        self.los_model = LineOfSightPathLossModel()
+        
+        # Learn a weighted combination of the two models' predictions
+        self.combiner = nn.Linear(2, 1)
+
+    def forward(self, x_inception, x_los):
+        inc_out = self.inception(x_inception)
+        los_out = self.los_model(x_los)
+        
+        # Combine the outputs
+        combined = torch.cat([inc_out, los_out], dim=1)
+        return self.combiner(combined)
+
+
+def train_model():
+    # Configure dataset
+    config = DatasetConfig()
+    
+    # We want to use datasets in CleanDatasets/data/sigcols_mad_RSRP/
+    # If the default ID doesn't match this, we need to enforce it.
+    # The default behavior inside DatasetConfig will target this based on preprocess_utils flags.
+    
+    target_col = "RSRP_NR_5G"
     batch_size = 32
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    learning_rate = 0.001
+    num_epochs = 10
+    inception_dim = 1 # Change to 2 or 3 to test 2D/3D
 
-    num_features = len(dataset.feature_cols)
-    logger.info(
-        f"Dataset loaded. Found {num_features} features and {len(dataset)} samples."
-    )
-    
-    # Find indices for x, y, z in feature columns
-    try:
-        x_idx = dataset.feature_cols.index('x')
-        y_idx = dataset.feature_cols.index('y')
-        z_idx = dataset.feature_cols.index('z')
-    except ValueError:
-        logger.error(f"Required features (x, y, z) not found in {dataset.feature_cols}")
-        return
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
 
-    model = nn.Sequential(
-        nn.Linear(num_features, 16),
-        nn.ReLU(),
-        nn.Linear(16, 1),
+    print("Loading dataset...")
+    full_dataset = UAVFlightDataset(
+        config=config, 
+        target=target_col, 
+        inception_dim=inception_dim,
+        flag_all_features=True
     )
 
+    sample_x_inception, sample_x_los, _ = full_dataset[0]
+    in_channels = sample_x_inception.shape[0]
+
+    train_size = int(0.8 * len(full_dataset))
+    val_size = len(full_dataset) - train_size
+    train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
+
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+
+    print(
+        f"Dataset split: {train_size} training samples, {val_size} validation samples."
+    )
+    print(f"Model Inception input channels: {in_channels}, Inception Dim: {inception_dim}\n")
+
+    model = CombinedFlightModel(in_channels=in_channels, inception_dim=inception_dim).to(device)
     criterion = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
-    logger.info("Starting mock training loop with LoS PL comparison...")
-    epochs = 2
-    for epoch in range(epochs):
-        running_loss = 0.0
-        running_los_err = 0.0
-        for batch_idx, (features, labels) in enumerate(dataloader):
+    print("Starting training...")
+    for epoch in range(num_epochs):
+        model.train()
+        running_train_loss = 0.0
+
+        for batch_x_inc, batch_x_los, batch_y in train_loader:
+            batch_x_inc = batch_x_inc.to(device)
+            batch_x_los = batch_x_los.to(device)
+            batch_y = batch_y.to(device)
+
             optimizer.zero_grad()
 
-            outputs = model(features).squeeze()
-            loss = criterion(outputs, labels)
+            predictions = model(batch_x_inc, batch_x_los)
+
+            if len(batch_y.shape) == 1:
+                batch_y = batch_y.unsqueeze(1)
+
+            loss = criterion(predictions, batch_y.float())
 
             loss.backward()
             optimizer.step()
 
-            running_loss += loss.item()
-            
-            # Calculate LoS PL model RSRP for comparison
-            batch_x = features[:, x_idx].numpy()
-            batch_y = features[:, y_idx].numpy()
-            batch_z = features[:, z_idx].numpy()
-            
-            rsrp_los = calculate_deterministic_rsrp(batch_x, batch_y, batch_z)
-            rsrp_los_tensor = torch.tensor(rsrp_los, dtype=torch.float32)
-            
-            los_error = torch.mean((rsrp_los_tensor - labels)**2).item()
-            running_los_err += los_error
+            running_train_loss += loss.item() * batch_x_inc.size(0)
 
-            if batch_idx == 0:
-                logger.info(
-                    f"Epoch [{epoch+1}/{epochs}] - ML Loss: {loss.item():.4f}, LoS Model MSE: {los_error:.4f}"
-                )
+        avg_train_loss = running_train_loss / train_size
 
-    logger.info("Training loop test completed successfully!")
+        model.eval()
+        running_val_loss = 0.0
+
+        with torch.no_grad():
+            for batch_x_inc, batch_x_los, batch_y in val_loader:
+                batch_x_inc = batch_x_inc.to(device)
+                batch_x_los = batch_x_los.to(device)
+                batch_y = batch_y.to(device)
+                
+                predictions = model(batch_x_inc, batch_x_los)
+
+                if len(batch_y.shape) == 1:
+                    batch_y = batch_y.unsqueeze(1)
+
+                loss = criterion(predictions, batch_y.float())
+                running_val_loss += loss.item() * batch_x_inc.size(0)
+
+        avg_val_loss = running_val_loss / val_size
+
+        print(
+            f"Epoch [{epoch + 1:02d}/{num_epochs}] | Train Loss (MSE): {avg_train_loss:.4f} | Val Loss (MSE): {avg_val_loss:.4f}"
+        )
+
+    print("\nTraining complete!")
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    test_training_loop()
+    train_model()

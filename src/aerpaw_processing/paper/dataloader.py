@@ -1,80 +1,179 @@
-import logging
+import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import Dataset
-import os
-import re
-from aerpaw_processing.preprocessing.preprocess_utils import (
-    get_flight_id,
-    load_data,
-    get_timestamp_col,
-    get_label_col,
-)
-from aerpaw_processing.resources.config.config_init import (
-    load_config,
-    TIMESTAMP_PATTERN,
-    TIMEDELTA_PATTERN,
-)
+from pathlib import Path
+from aerpaw_processing.paper.preprocess_steps import process
+from aerpaw_processing.paper.preprocess_utils import DatasetConfig, get_env_var
+from aerpaw_processing.resources.config.config_init import load_env
 
-load_config()
+load_env()
 
 
-logger = logging.getLogger(__name__)
+class UAVFlightDataset(Dataset):
+    def __init__(
+        self,
+        config: DatasetConfig,
+        target: str,
+        inception_dim: int = 1,
+        flag_all_features: bool = True,
+        dataset_filenames: list[str] | None = None,
+    ):
+        """
+        Args:
+            config: Dataset configuration
+            target (str): The column name to predict (e.g., 'RSRP_LTE_4G' or 'RSRP_NR_5G').
+                          If False, drop datasets missing the target.
+            inception_dim: Dimensionality for inception model (1, 2, or 3)
+            flag_all_features (bool): If True, keep inconsistent features and add flag columns
+                                      If False, keep only features present in ALL datasets.
+        """
+        clean_home = Path(str(get_env_var("DATASET_CLEAN_HOME")))
+        dataset_dir = clean_home / "data" / config.get_id()
+        self.dataset_dir = dataset_dir
+        self.target = target
+        self.inception_dim = inception_dim
+        self.flag_all_features = flag_all_features
+        self.dataset_filenames = dataset_filenames
 
+        # Check if the processed datasets already exist. If they are missing,
+        # generate them using the specified config.
+        if not self.dataset_dir.exists() or not any(self.dataset_dir.iterdir()):
+            process(config)
 
-class SignalDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
-    def __init__(self, dataset_num: int, flight_name: str, label_col: str):
+        # Get a list of csv files. Default to all files if no specific filenames
+        # were defined.
+        if self.dataset_filenames is None:
+            csv_files = list(dataset_dir.glob("*.csv"))
+        else:
+            csv_files = [
+                self.dataset_dir / filename for filename in self.dataset_filenames
+            ]
 
-        flight_id = get_flight_id(dataset_num, flight_name) + ".csv"
+        raw_dfs = [pd.read_csv(f) for f in csv_files]
 
-        clean_dataset_dir = os.getenv("DATASET_CLEAN_HOME")
+        processed_dfs = []
 
-        if not clean_dataset_dir:
-            raise EnvironmentError(
-                "Environment variable 'DATASET_CLEAN_HOME' is not set. "
-                "Please set it to the path of the cleaned dataset directory."
+        for df in raw_dfs:
+            # All datasets have these columns. Every dataset has x, y, z columns based
+            # on the same base tower. Every dataset has RelativeTime column based on
+            # the first measurement in each dataset. These columns are now redundant.
+            df = df.drop(
+                columns=["Timestamp", "Latitude", "Longitude", "Altitude"],
+                axis=0,
+                errors="ignore",
             )
 
-        data_path = os.path.join(clean_dataset_dir, flight_id)
+            # Convert pandas RelativeTime timedelta column to float value for processing.
+            if "RelativeTime" in df.columns:
+                df["RelativeTime"] = pd.to_timedelta(
+                    df["RelativeTime"]
+                ).dt.total_seconds()
+                df = df.sort_values(by="RelativeTime")
 
-        if not os.path.exists(data_path):
-            raise FileNotFoundError(
-                f"Data path '{data_path}' does not exist. "
-                "Run aerpaw_processing.preprocessing.main with desired settings to generate the cleaned dataset."
+            # Some datasets have RSRP_LTE_4G and some datasets have RSRP_NR_5G. We only
+            # want datasets with the specific RSRP type.
+            if self.target not in df.columns:
+                continue
+
+            processed_dfs.append(df)
+
+        if not processed_dfs:
+            raise ValueError(
+                "No datasets remaining after applying target filtering logic."
             )
 
-        data = load_data(data_path)
+        # Get a set of all columns across all datasets and
+        # a set of columns that are common between all datasets.
+        all_cols = set()
+        common_cols = set(processed_dfs[0].columns)
 
-        self.label_col = get_label_col(data, label_col)
+        for df in processed_dfs:
+            all_cols.update(df.columns)
+            common_cols.intersection_update(df.columns)
 
-        self.feature_cols = [col for col in data.columns if col != self.label_col]
+        # Remove target column to get just the feature columns
+        feature_cols_all = all_cols - {self.target}
+        feature_cols_common = common_cols - {self.target}
 
-        timestamp_col = get_timestamp_col()
-        if timestamp_col in self.feature_cols:
-            valid_time = str(data[timestamp_col].iloc[data[timestamp_col].first_valid_index()])  # type: ignore
-            if re.match(TIMESTAMP_PATTERN, valid_time):
-                data[timestamp_col] = pd.to_datetime(
-                    data[timestamp_col], format="%Y-%m-%d %H:%M:%S.%f"
-                )
-                data[timestamp_col] = data[timestamp_col].astype("int64") // 10**9
-            elif re.match(TIMEDELTA_PATTERN, valid_time):
-                data[timestamp_col] = pd.to_timedelta(data[timestamp_col])
-                data[timestamp_col] = data[timestamp_col].dt.total_seconds()
+        final_feature_cols: list[str]
+        if self.flag_all_features:
+            # If this value is true, we want to keep feature data that may only be
+            # present on some of the datasets. To train with some of the data missing,
+            # we add a "flag" column that is set to 1 if the column is present in that
+            # dataset or 0 if the column is missing. This way, the model will learn
+            # that if a column is missing, it's actual value (0.0) can be ignored.
+            final_feature_cols = sorted(list(feature_cols_all))
+            flag_cols = [
+                f"{col}_present" for col in feature_cols_all - feature_cols_common
+            ]
+            final_feature_cols = sorted(final_feature_cols + flag_cols)
+        else:
+            # If the value is false, just remove columns that are not common between
+            # all datasets
+            final_feature_cols = sorted(list(feature_cols_common))
+
+        all_X_inception = []
+        all_X_los = []
+        all_y_targets = []
+
+        for df in processed_dfs:
+            if self.flag_all_features:
+                # Set flag value to 1 for present and 0 for missing
+                features_to_flag = feature_cols_all - feature_cols_common
+                for col in features_to_flag:
+                    if col in df.columns:
+                        df[f"{col}_present"] = 1
+                    else:
+                        df[col] = 0.0
+                        df[f"{col}_present"] = 0
             else:
-                raise ValueError(
-                    f"Timestamp column '{timestamp_col}' has an unrecognized format: {valid_time}"
-                )
+                cols_to_keep = list(feature_cols_common | {self.target})
+                df = df[cols_to_keep]
 
-        data = data.dropna(subset=[self.label_col] + self.feature_cols)
+            df.fillna(0.0, inplace=True)
 
-        self.features = torch.tensor(
-            data[self.feature_cols].values, dtype=torch.float32
-        )
+            # Use sorted final_feature_cols to match up columns between datasets.
+            flight_X = df[final_feature_cols].values
+            flight_y = df[self.target].values
 
-        self.labels = torch.tensor(data[self.label_col].values, dtype=torch.float32)
+            # Compute 3D distance to the tower for Line of Sight Path Loss model
+            # Base station is at x=0, y=0, z=10
+            x_idx = final_feature_cols.index("x") if "x" in final_feature_cols else -1
+            y_idx = final_feature_cols.index("y") if "y" in final_feature_cols else -1
+            z_idx = final_feature_cols.index("z") if "z" in final_feature_cols else -1
+
+            for i in range(len(flight_X)):
+                point = flight_X[i]
+                target_val = flight_y[i]
+
+                if x_idx != -1 and y_idx != -1 and z_idx != -1:
+                    x_val, y_val, z_val = point[x_idx], point[y_idx], point[z_idx]
+                    d3D = np.sqrt(x_val**2 + y_val**2 + (z_val - 10) ** 2)
+                    log_d = np.log10(max(d3D, 1e-5))
+                else:
+                    log_d = 0.0  # Fallback if spatial features are missing
+
+                # Reshape point feature vector for 1D, 2D, or 3D CNN
+                if self.inception_dim == 1:
+                    point_t = point.reshape(-1, 1)
+                elif self.inception_dim == 2:
+                    point_t = point.reshape(-1, 1, 1)
+                elif self.inception_dim == 3:
+                    point_t = point.reshape(-1, 1, 1, 1)
+                else:
+                    raise ValueError("inception_dim must be 1, 2, or 3")
+
+                all_X_inception.append(point_t)
+                all_X_los.append([log_d])
+                all_y_targets.append(target_val)
+
+        self.X_inception = torch.tensor(np.array(all_X_inception), dtype=torch.float32)
+        self.X_los = torch.tensor(np.array(all_X_los), dtype=torch.float32)
+        self.y = torch.tensor(np.array(all_y_targets), dtype=torch.float32)
 
     def __len__(self):
-        return len(self.labels)
+        return len(self.y)
 
-    def __getitem__(self, idx: int):
-        return self.features[idx], self.labels[idx]
+    def __getitem__(self, idx):
+        return self.X_inception[idx], self.X_los[idx], self.y[idx]

@@ -29,7 +29,8 @@ dependencies = [
     "pyproj",
     "torch",
     "kaleido",
-    "debugpy"
+    "debugpy",
+    "ruff"
 ]
 
 [project.scripts]

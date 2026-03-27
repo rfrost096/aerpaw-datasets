@@ -10,6 +10,7 @@ from aerpaw_processing.resources.tower_locations import towers
 from aerpaw_processing.resources.config.config_init import load_env
 from aerpaw_processing.paper.preprocess_utils import (
     StepEnum,
+    DatasetConfig,
     get_label_col,
     get_step_entry,
     get_env_var,
@@ -363,16 +364,13 @@ def report_interpolate_to_label(
     report.append("\n")
 
 
-def generate_report(context: pd.DataFrame, mad_filter: bool):
+def generate_report(context: pd.DataFrame, config: DatasetConfig):
     """Generate a markdown report from the processing context."""
 
-    # context_home = Path(get_env_var("CONTEXT_HOME"))
-    script_dir = Path(__file__).resolve().parent
-    report_home = script_dir / "../../../"
-    if not mad_filter:
-        report_home = report_home / "report/"
-    else:
-        report_home = report_home / "report_mad/"
+    clean_home = Path(get_env_var("DATASET_CLEAN_HOME"))
+    report_home = clean_home / "report"
+
+    report_home = report_home / config.get_id()
 
     os.makedirs(report_home, exist_ok=True)
 

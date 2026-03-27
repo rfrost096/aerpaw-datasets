@@ -16,6 +16,14 @@ RELATIVE_TIMESTAMP_COL = "RelativeTime"
 TIMESTAMP_PATTERN = r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+$"
 TIMEDELTA_PATTERN = r"^(\d+ days,?\s+)?\d{1,2}:\d{2}:\d{2}(\.\d+)?$"
 
+# DEFAULT SETTINGS
+REMOVE_COL = True
+SIGNAL_ONLY = True
+MAD_FILTER_FLAG = True
+LABEL_COL = "RSRP"
+SAVE_DATA = True
+SAVE_CONTEXT = False
+GEN_REPORT = False
 
 class StepEnum(Enum):
     """All configured steps used for inter-step referencing"""
@@ -36,13 +44,31 @@ class StepEnum(Enum):
 
 @dataclass
 class DatasetConfig:
-    remove_cols: bool
-    signal_only: bool
-    mad_filter: bool
-    label_col: str
-    save_data: bool
-    save_context_data: bool
-    gen_report: bool
+    remove_cols: bool = REMOVE_COL
+    signal_only: bool = SIGNAL_ONLY
+    mad_filter: bool = MAD_FILTER_FLAG
+    label_col: str = LABEL_COL
+    save_data: bool = SAVE_DATA
+    save_context_data: bool = SAVE_CONTEXT
+    gen_report: bool = GEN_REPORT
+
+    def get_id(self):
+        id = ""
+        if not self.remove_cols:
+            id += "allcols"
+        else:
+            if not self.signal_only:
+                id += "cols"
+            else:
+                id += "sigcols"
+        if self.mad_filter:
+            id += "_mad"
+        else:
+            id += "_nomad"
+        id += f"_{self.label_col}"
+
+        return id
+
 
 
 def add_step_entry(step: StepEnum, step_data: pd.DataFrame, context: pd.DataFrame):

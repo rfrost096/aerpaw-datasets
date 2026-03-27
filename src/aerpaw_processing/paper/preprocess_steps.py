@@ -36,15 +36,6 @@ BASE_TOWER = towers[0]
 TIMESTAMP_COL = "Timestamp"
 TECH_LIST = ["LTE_4G", "NR_5G"]
 
-# DEFAULT SETTINGS:
-REMOVE_COL = True
-SIGNAL_ONLY = True
-MAD_FILTER_FLAG = True
-LABEL_COL = "RSRP"
-SAVE_DATA = True
-SAVE_CONTEXT = False
-GEN_REPORT = False
-
 
 def read_data(context: pd.DataFrame):
     """Read all dataset csv files into pandas DataFrame
@@ -306,8 +297,15 @@ def interpolate_to_label(
             continue
 
         # Ensure timestamp column is datetime for interpolation
-        df[TIMESTAMP_COL] = pd.to_datetime(df[TIMESTAMP_COL])
-        df = df.sort_values(TIMESTAMP_COL)
+
+        first_valid = df[TIMESTAMP_COL].first_valid_index()
+
+        if re.match(TIMESTAMP_PATTERN, str(df[TIMESTAMP_COL].iloc[first_valid])):
+            df[TIMESTAMP_COL] = pd.to_datetime(
+                df[TIMESTAMP_COL], format="%Y-%m-%d %H:%M:%S.%f"
+            )
+        else:
+            df[TIMESTAMP_COL] = pd.to_datetime(df[TIMESTAMP_COL], unit="ms")
 
         # Set timestamp as index for interpolation
         df = df.set_index(TIMESTAMP_COL)
@@ -343,6 +341,15 @@ def interpolate_to_label(
         # (if they were available at other timestamps)
         df_filtered = df[has_label].reset_index()
 
+        cols_to_fix = [
+            col
+            for col in df_filtered.columns
+            if (df_filtered[col] == "Unavailable").any()
+        ]
+        for col in cols_to_fix:
+            df_filtered[col] = (
+                df_filtered[col].replace("Unavailable", np.nan).astype("float64")
+            )
         new_row = {
             "dataset_id": row["dataset_id"],
             "flight_name": row["flight_name"],
@@ -360,27 +367,14 @@ def interpolate_to_label(
 def add_relative_time_col(context: pd.DataFrame, step_list: list[StepEnum]):
     working = get_step_entry(step_list[-1], context)
 
-    def apply_mad_filter(df):
-        first_valid = df["data"][TIMESTAMP_COL].first_valid_index()
-
-        if re.match(
-            TIMESTAMP_PATTERN, str(df["data"][TIMESTAMP_COL].iloc[first_valid])
-        ):
-            df["data"][TIMESTAMP_COL] = pd.to_datetime(
-                df["data"][TIMESTAMP_COL], format="%Y-%m-%d %H:%M:%S.%f"
-            )
-        else:
-            df["data"][TIMESTAMP_COL] = pd.to_datetime(
-                df["data"][TIMESTAMP_COL], unit="ms"
-            )
-
-        series: pd.Series = cast(pd.Series, df["data"][TIMESTAMP_COL])
+    def add_realtive_time(df):
+        series: pd.Series = cast(pd.Series, df[TIMESTAMP_COL])
 
         df[RELATIVE_TIMESTAMP_COL] = series - series.iloc[0]
 
         return df
 
-    working["data"] = working["data"].apply(apply_mad_filter)
+    working["data"] = working["data"].apply(add_realtive_time)
 
     step_list.append(StepEnum.ADD_RELATIVE_TIME)
 
@@ -418,7 +412,6 @@ def project_coordinates(context: pd.DataFrame, step_list: list[StepEnum]):
             "data": df,
         }
         new_rows.append(new_row)
-
     working_projected = pd.DataFrame(new_rows)
     step_list.append(StepEnum.PROJECT_COORDINATES)
     add_step_entry(step_list[-1], working_projected, context)
@@ -495,7 +488,7 @@ def calculate_angular_bin(context: pd.DataFrame, step_list: list[StepEnum]):
     add_step_entry(StepEnum.CALCULATE_BIN, working_binned, context)
 
 
-def calculate_correlation(context: pd.DataFrame, label_col: str = LABEL_COL):
+def calculate_correlation(context: pd.DataFrame, label_col):
     """Correlation Computation within each angular group.
 
     Section II.B.1 Correlation Computation in AI-Enabled Wireless Propagation Modeling and Radio Environment Maps for 5G Aerial Wireless Networks
@@ -678,7 +671,7 @@ def calculate_correlation(context: pd.DataFrame, label_col: str = LABEL_COL):
 
 
 def calculate_fast_fading_correlation(
-    context: pd.DataFrame, step_list: list[StepEnum], label_col: str = LABEL_COL
+    context: pd.DataFrame, step_list: list[StepEnum], label_col: str
 ):
     """Fast fading factor correlation in spatio-temporal domain.
 
@@ -864,14 +857,21 @@ def calculate_fast_fading_correlation(
     add_step_entry(StepEnum.FAST_FADING_CORRELATION, working_ff, context)
 
 
-def save_datasets(context: pd.DataFrame, step_list: list[StepEnum]):
-    cleaned_home = Path(get_env_var("DATASET_CLEAN_HOME"))
+def save_datasets(
+    context: pd.DataFrame, step_list: list[StepEnum], config: DatasetConfig
+):
+    clean_home = Path(get_env_var("DATASET_CLEAN_HOME"))
+    clean_home = clean_home / "data" / config.get_id()
+
+    os.makedirs(clean_home, exist_ok=True)
+
     working = get_step_entry(step_list[-1], context)
 
     for _, row in working.iterrows():
         cast(pd.DataFrame, row["data"]).to_csv(
-            cleaned_home
-            / f"Dataset_{row['dataset_id']}_{cast(str, row['flight_name']).replace(' ', '_')}.csv"
+            clean_home
+            / f"Dataset_{row['dataset_id']}_{cast(str, row['flight_name']).replace(' ', '_')}.csv",
+            index=False,
         )
 
 
@@ -899,6 +899,8 @@ def process(config: DatasetConfig):
 
     interpolate_to_label(context, step_list, config.label_col)
 
+    add_relative_time_col(context, step_list)
+
     project_coordinates(context, step_list)
 
     if config.mad_filter:
@@ -911,16 +913,17 @@ def process(config: DatasetConfig):
     calculate_fast_fading_correlation(context, step_list, config.label_col)
 
     if config.save_data:
-        save_datasets(context, step_list)
+        save_datasets(context, step_list, config)
 
     if config.save_context_data:
         save_context(context)
 
     if config.gen_report:
-        generate_report(context, config.mad_filter)
+        generate_report(context, config)
 
 
 def process_datasets():
+    config = DatasetConfig()
     parser = argparse.ArgumentParser(
         description="""Process AERPAW datasets for
 report generation or dataloading scripts."""
@@ -929,7 +932,7 @@ report generation or dataloading scripts."""
         "--no-delete-columns",
         dest="delete_columns",
         action="store_false",
-        default=True,
+        default=config.remove_cols,
         help="""Do not delete any columns. The script renames important columns
 for easier cross-dataset processing (i.e. RSRP, SINR). Other columns may exist, but
 they are removed by default. Set this flag to preserve all columns.""",
@@ -938,7 +941,7 @@ they are removed by default. Set this flag to preserve all columns.""",
         "--no-signal_only",
         dest="signal_only",
         action="store_false",
-        default=True,
+        default=config.signal_only,
         help="""Do not remove all columns except for signal quality columns. The script
 uses only keeps signal quality columns by default. If other columns that are classified
 as important in config.yaml are desired, set this flag. This flag will be ignored if
@@ -948,7 +951,7 @@ as important in config.yaml are desired, set this flag. This flag will be ignore
         "--no-mad-filter",
         dest="mad_filter",
         action="store_false",
-        default=True,
+        default=config.mad_filter,
         help="""Do not filter datapoints based on median absolute deviation. The script
 will take the median altitude value and only include points that are within certain 
 standard deviations from the median. This will filter datapoints to only include points
@@ -959,7 +962,7 @@ removed)""",
         "--label-col",
         dest="label_col",
         type=str,
-        default=LABEL_COL,
+        default=config.label_col,
         help="""Set a specific label column for correlation analysis. Default is RSRP.
 Other label columns (SINR, RSRQ) are untested.""",
     )
@@ -967,27 +970,27 @@ Other label columns (SINR, RSRQ) are untested.""",
         "--no-save-data",
         dest="save_data",
         action="store_false",
-        default=True,
+        default=config.save_data,
         help="Do not save the processed datasets",
     )
     parser.add_argument(
         "--save-context",
         dest="save_context",
         action="store_true",
-        default=False,
+        default=config.save_context_data,
         help="Save the context object that includes each processing step.",
     )
     parser.add_argument(
         "--generate-report",
         dest="generate_report",
         action="store_true",
-        default=False,
+        default=config.gen_report,
         help="Generate report of each processing step.",
     )
 
     args = parser.parse_args()
 
-    config = DatasetConfig(
+    arg_config = DatasetConfig(
         remove_cols=args.remove_cols,
         signal_only=args.signal_only,
         mad_filter=args.mad_filter,
@@ -997,17 +1000,9 @@ Other label columns (SINR, RSRQ) are untested.""",
         gen_report=args.generate_report,
     )
 
-    process(config)
+    process(arg_config)
 
 
 if __name__ == "__main__":
-    config = DatasetConfig(
-        remove_cols=REMOVE_COL,
-        signal_only=SIGNAL_ONLY,
-        mad_filter=MAD_FILTER_FLAG,
-        label_col=LABEL_COL,
-        save_data=SAVE_DATA,
-        save_context_data=SAVE_CONTEXT,
-        gen_report=GEN_REPORT,
-    )
+    config = DatasetConfig()
     process(config)
