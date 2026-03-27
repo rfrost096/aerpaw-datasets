@@ -3,6 +3,7 @@ import os
 import logging
 from enum import Enum
 from typing import cast
+from dataclasses import dataclass
 
 from aerpaw_processing.resources.config.config_init import load_env, CONFIG
 
@@ -11,6 +12,9 @@ load_env()
 logger = logging.getLogger(__name__)
 
 TECH_LIST = ["NR_5G", "LTE_4G"]
+RELATIVE_TIMESTAMP_COL = "RelativeTime"
+TIMESTAMP_PATTERN = r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+$"
+TIMEDELTA_PATTERN = r"^(\d+ days,?\s+)?\d{1,2}:\d{2}:\d{2}(\.\d+)?$"
 
 
 class StepEnum(Enum):
@@ -22,11 +26,23 @@ class StepEnum(Enum):
     COMBINE_TECH_FILES = "combine_tech_files"
     COMBINE_FLIGHT_TECHS = "combine_flight_techs"
     INTERPOLATE_TO_LABEL = "interpolate_to_label"
+    ADD_RELATIVE_TIME = "add_relative_time"
     PROJECT_COORDINATES = "project_coordinates"
     MAD_FILTER = "mad_filter"
     CALCULATE_BIN = "calculate_bin"
     CORRELATION_COMPUTATION = "correlation_computation"
     FAST_FADING_CORRELATION = "fast_fading_correlation"
+
+
+@dataclass
+class DatasetConfig:
+    remove_cols: bool
+    signal_only: bool
+    mad_filter: bool
+    label_col: str
+    save_data: bool
+    save_context_data: bool
+    gen_report: bool
 
 
 def add_step_entry(step: StepEnum, step_data: pd.DataFrame, context: pd.DataFrame):
