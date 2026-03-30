@@ -32,12 +32,3 @@ dependencies = [
     "debugpy",
     "ruff"
 ]
-
-[project.scripts]
-generate-kml = "aerpaw_processing.KMLPostProcessing.generate_kpi_kml:main"
-graph-mutual = "aerpaw_processing.graph.graph_main:graph_mutual"
-graph-avg-mutual = "aerpaw_processing.graph.graph_main:graph_avg_mutual"
-graph-label = "aerpaw_processing.graph.graph_main:graph_label"
-graph-label-temporal = "aerpaw_processing.graph.graph_main:graph_label_temporal"
-graph_spatial_rsrp_correlation = "aerpaw_processing.graph.graph_main:graph_spatial_rsrp_correlation"
-graph_fast_fading_correlation = "aerpaw_processing.graph.graph_main:graph_fast_fading_correlation"
