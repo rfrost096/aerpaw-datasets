@@ -406,6 +406,19 @@ def project_coordinates(context: pd.DataFrame, step_list: list[StepEnum]):
         df["y"] = y
         df["z"] = df["Altitude"]
 
+        # The altitude of the BASE_TOWER is 10m. I want to preserve this
+        # for graphical purposes rather than change the  UAV altitude
+        # values
+        dz = df["z"] - BASE_TOWER.alt
+
+        df["d3D"] = np.sqrt(df["x"] ** 2 + df["y"] ** 2 + dz**2)
+        # Normalized aziumth from [-pi, pi] to [0, 2pi]
+        df["azimuth"] = np.mod(np.arctan2(df["y"], df["x"]), 2 * np.pi)
+
+        ground_dist = np.sqrt(df["x"] ** 2 + df["y"] ** 2)
+        # polar angle use din angular bin calculation
+        df["elevation"] = np.arctan2(ground_dist, dz)
+
         new_row = {
             "dataset_id": row["dataset_id"],
             "flight_name": row["flight_name"],
@@ -451,7 +464,6 @@ def calculate_angular_bin(context: pd.DataFrame, step_list: list[StepEnum]):
 
     new_rows = []
 
-    BS_Z = 10.0
     BIN_SIZE = 0.05
 
     num_phi_bins = int(np.ceil(2 * np.pi / BIN_SIZE))
@@ -460,16 +472,9 @@ def calculate_angular_bin(context: pd.DataFrame, step_list: list[StepEnum]):
         df: pd.DataFrame = cast(pd.DataFrame, row["data"]).copy()
 
         if "x" in df.columns and "y" in df.columns and "z" in df.columns:
-            x = np.array(df["x"])
-            y = np.array(df["y"])
-            z_rel = np.array(df["z"].values) - BS_Z
+            theta = df["elevation"].values
 
-            d_h = np.sqrt(x**2 + y**2)
-
-            theta = np.arctan2(d_h, z_rel)
-
-            phi = np.arctan2(y, x)
-            phi = np.mod(phi, 2 * np.pi)
+            phi = df["azimuth"]
 
             bin_theta = np.floor(theta / BIN_SIZE)
             bin_phi = np.floor(phi / BIN_SIZE)
@@ -559,9 +564,10 @@ def calculate_correlation(context: pd.DataFrame, label_col):
             continue
 
         # Add 3D distance column
-        valid_df["d3D"] = np.sqrt(
-            valid_df["x"] ** 2 + valid_df["y"] ** 2 + (valid_df["z"] - 10.0) ** 2
-        )
+        # Added in project_coordinates
+        #        valid_df["d3D"] = np.sqrt(
+        #            valid_df["x"] ** 2 + valid_df["y"] ** 2 + (valid_df["z"] - 10.0) ** 2
+        #        )
 
         # We need to compute pairwise correlations for each bin
         #
@@ -749,10 +755,9 @@ def calculate_fast_fading_correlation(
 
         # First, calculate the 3D spatial separation between the UAV and the Base Station (BS).
         # The BS is assumed to be at the coordinate origin (0, 0) with a Z-height of 10.0m.
-        d3D_bs = np.sqrt(
-            valid_df["x"] ** 2 + valid_df["y"] ** 2 + (valid_df["z"] - 10.0) ** 2
-        )
 
+        # Refactored d3D calculation to project_coordinates
+        d3D_bs = valid_df["d3D"]
         # Calculate the fast fading factor 'nu'.
         # Since RSRP is in dBm, we isolate nu by adding back the 20*log10(d3D) path loss term:
         # nu = RSRP - (-20 * log10(d3D)) = RSRP + 20 * log10(d3D).

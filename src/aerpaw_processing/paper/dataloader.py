@@ -9,6 +9,9 @@ from aerpaw_processing.resources.config.config_init import load_env
 
 load_env()
 
+INCEPTION_COLUMNS = ["d3D", "elevation", "azimuth", "x", "y", "z"]
+CENTER_FREQUENCY = 3.4 * 1_000_000_000
+
 
 class UAVFlightDataset(Dataset):
     def __init__(
@@ -55,26 +58,23 @@ class UAVFlightDataset(Dataset):
         processed_dfs = []
 
         for df in raw_dfs:
-            # All datasets have these columns. Every dataset has x, y, z columns based
-            # on the same base tower. Every dataset has RelativeTime column based on
-            # the first measurement in each dataset. These columns are now redundant.
-            df = df.drop(
-                columns=["Timestamp", "Latitude", "Longitude", "Altitude"],
-                axis=0,
-                errors="ignore",
-            )
+            if len(set(INCEPTION_COLUMNS).intersection(set(df.columns))) != len(
+                INCEPTION_COLUMNS
+            ):
+                missing_cols: list[str] = []
+                for col in INCEPTION_COLUMNS:
+                    if col not in df.columns:
+                        missing_cols.append(col)
+                raise ValueError(
+                    f"Columns are missing for Inception features: {', '.join(missing_cols)}"
+                )
 
-            # Convert pandas RelativeTime timedelta column to float value for processing.
-            if "RelativeTime" in df.columns:
-                df["RelativeTime"] = pd.to_timedelta(
-                    df["RelativeTime"]
-                ).dt.total_seconds()
-                df = df.sort_values(by="RelativeTime")
-
-            # Some datasets have RSRP_LTE_4G and some datasets have RSRP_NR_5G. We only
-            # want datasets with the specific RSRP type.
             if self.target not in df.columns:
                 continue
+
+            cols_to_keep = [target] + INCEPTION_COLUMNS
+
+            df = df[cols_to_keep]
 
             processed_dfs.append(df)
 
