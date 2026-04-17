@@ -1005,9 +1005,11 @@ Other label columns (SINR, RSRQ) are untested.""",
         gen_report=args.generate_report,
     )
 
+
     process(arg_config)
 
 
 if __name__ == "__main__":
     config = DatasetConfig()
+    config.gen_report = True
     process(config)

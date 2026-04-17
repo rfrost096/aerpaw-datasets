@@ -600,7 +600,7 @@ def main() -> None:
     args = parse_args()
 
     # ── lazy import to keep the file usable as a library ─────────────────
-    from inception_dataloader import InceptionDataset
+    from aerpaw_processing.paper.inception_dataloader import InceptionDataset
     from aerpaw_processing.paper.preprocess_utils import DatasetConfig
 
     # Build a default DatasetConfig – adjust as needed for your environment

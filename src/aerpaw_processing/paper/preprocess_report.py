@@ -87,6 +87,16 @@ def _generate_3d_plot(
                     )
                 )
 
+                # Move the legend to the top-left corner
+                fig.update_layout(
+                    legend=dict(
+                        yanchor="top",
+                        y=0.03,
+                        xanchor="left",
+                        x=0.05,
+                        bgcolor="rgba(0,0,0,0.5)",
+                    )
+                )
                 if step_name == "bin":
                     BIN_SIZE = 0.05
                     num_phi_bins = int(np.ceil(2 * np.pi / BIN_SIZE))
@@ -472,12 +482,87 @@ def generate_report(context: pd.DataFrame, config: DatasetConfig):
             import plotly.graph_objects as go
             from plotly.subplots import make_subplots
 
+            # Averaged plot across all datasets
+            all_corr_data = []
+            for _, row in cast(pd.DataFrame, step_df).iterrows():
+                if not row["data"].empty:
+                    all_corr_data.append(row["data"])
+
+            if all_corr_data:
+                agg_df = pd.concat(all_corr_data)
+                agg_df = agg_df[agg_df["radial_bin"] <= 200]
+                if not agg_df.empty:
+                    avg_df = (
+                        agg_df.groupby("radial_bin")
+                        .agg({"r": "mean", "num_pairs": "sum"})
+                        .reset_index()
+                    )
+
+                    fig = make_subplots(specs=[[{"secondary_y": True}]])
+                    fig.add_trace(
+                        go.Bar(
+                            x=avg_df["radial_bin"],
+                            y=avg_df["num_pairs"],
+                            name="Total Num Pairs",
+                            opacity=0.3,
+                            marker_color="red",
+                        ),
+                        secondary_y=True,
+                    )
+                    fig.add_trace(
+                        go.Scatter(
+                            x=avg_df["radial_bin"],
+                            y=avg_df["r"],
+                            name="Averaged Correlation",
+                            mode="lines+markers",
+                            line=dict(color="blue"),
+                        ),
+                        secondary_y=False,
+                    )
+                    fig.update_layout(
+                        title_text="Spatial Correlation: Averaged Across All Datasets",
+                        template="plotly_white",
+                    )
+                    fig.update_xaxes(title_text="Radial separation distance (m)")
+                    fig.update_yaxes(
+                        title_text="Avg Correlation", secondary_y=False, range=[-1.0, 1.0]
+                    )
+                    fig.update_yaxes(
+                        title_text="Total Num Pairs", secondary_y=True, showgrid=False
+                    )
+
+                    base_name = "all_datasets_spatial_correlation_avg"
+                    png_filename = f"{base_name}.png"
+                    html_filename = f"{base_name}.html"
+                    png_path = assets_dir / png_filename
+                    html_path = assets_dir / html_filename
+                    fig.write_html(str(html_path))
+                    try:
+                        fig.write_image(str(png_path))
+                        report.append("#### Averaged Across All Datasets\n")
+                        rel_png = f"report_assets/{png_filename}"
+                        rel_html = f"report_assets/{html_filename}"
+                        report.append(
+                            f"[![Averaged Across All Datasets]({rel_png})]({rel_html})\n"
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"Could not save static image for averaged plot: {e}"
+                        )
+                        rel_html = f"report_assets/{html_filename}"
+                        report.append("#### Averaged Across All Datasets\n")
+                        report.append(
+                            f"[Interactive Averaged Correlation Plot]({rel_html})\n"
+                        )
+
             calc_bin_df = get_step_entry(StepEnum.CALCULATE_BIN, context)
             BIN_SIZE = 0.05
             num_phi_bins = int(np.ceil(2 * np.pi / BIN_SIZE))
 
             for _, r in cast(pd.DataFrame, step_df).iterrows():
                 df: pd.DataFrame = r["data"]
+                if not df.empty:
+                    df = df[df["radial_bin"] <= 200]
                 flight_name = r["flight_name"]
                 dataset_id = r["dataset_id"]
                 bin_stats = r.get("bin_stats")
@@ -725,8 +810,82 @@ def generate_report(context: pd.DataFrame, config: DatasetConfig):
             import plotly.graph_objects as go
             from plotly.subplots import make_subplots
 
+            # Averaged plot across all datasets
+            all_ff_data = []
+            for _, row in cast(pd.DataFrame, step_df).iterrows():
+                all_ff_data.append(row["data"])
+
+            if all_ff_data:
+                agg_df = pd.concat(all_ff_data)
+                agg_df = agg_df[agg_df["spatial_bin"] <= 50]
+                if not agg_df.empty:
+                    avg_df = (
+                        agg_df.groupby("spatial_bin")
+                        .agg({"r": "mean", "num_pairs": "sum"})
+                        .reset_index()
+                    )
+
+                    fig = make_subplots(specs=[[{"secondary_y": True}]])
+                    fig.add_trace(
+                        go.Bar(
+                            x=avg_df["spatial_bin"],
+                            y=avg_df["num_pairs"],
+                            name="Total Num Pairs",
+                            opacity=0.3,
+                            marker_color="green",
+                        ),
+                        secondary_y=True,
+                    )
+                    fig.add_trace(
+                        go.Scatter(
+                            x=avg_df["spatial_bin"],
+                            y=avg_df["r"],
+                            name="Averaged Correlation",
+                            mode="lines+markers",
+                            line=dict(color="orange"),
+                        ),
+                        secondary_y=False,
+                    )
+                    fig.update_layout(
+                        title_text="Fast Fading Correlation: Averaged Across All Datasets",
+                        template="plotly_white",
+                    )
+                    fig.update_xaxes(title_text="Spatial separation distance (m)")
+                    fig.update_yaxes(
+                        title_text="Avg Correlation", secondary_y=False, range=[-1.0, 1.0]
+                    )
+                    fig.update_yaxes(
+                        title_text="Total Num Pairs", secondary_y=True, showgrid=False
+                    )
+
+                    base_name = "all_datasets_ff_correlation_avg"
+                    png_filename = f"{base_name}.png"
+                    html_filename = f"{base_name}.html"
+                    png_path = assets_dir / png_filename
+                    html_path = assets_dir / html_filename
+                    fig.write_html(str(html_path))
+                    try:
+                        fig.write_image(str(png_path))
+                        report.append("#### Averaged Across All Datasets\n")
+                        rel_png = f"report_assets/{png_filename}"
+                        rel_html = f"report_assets/{html_filename}"
+                        report.append(
+                            f"[![Averaged Across All Datasets]({rel_png})]({rel_html})\n"
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"Could not save static image for averaged plot: {e}"
+                        )
+                        rel_html = f"report_assets/{html_filename}"
+                        report.append("#### Averaged Across All Datasets\n")
+                        report.append(
+                            f"[Interactive Averaged Fast Fading Plot]({rel_html})\n"
+                        )
+
             for _, r in cast(pd.DataFrame, step_df).iterrows():
                 df: pd.DataFrame = r["data"]
+                if not df.empty:
+                    df = df[df["spatial_bin"] <= 50]
                 flight_name = r["flight_name"]
                 dataset_id = r["dataset_id"]
 
