@@ -1,7 +1,7 @@
 import pandas as pd
 import math
-from torch.utils.data import Dataset
 import torch
+from torch.utils.data import Dataset, Subset, random_split
 from pathlib import Path
 from aerpaw_processing.paper.preprocess_steps import process
 from aerpaw_processing.paper.preprocess_utils import DatasetConfig, get_env_var
@@ -9,7 +9,7 @@ from aerpaw_processing.resources.config.config_init import load_env
 
 load_env()
 
-INCEPTION_COLUMNS = ["d3D", "elevation", "azimuth"]
+FEATURE_COLUMNS = ["d3D", "elevation", "azimuth"]
 TARGET = "RSRP_NR_5G"
 CENTER_FREQUENCY = 3.4 * 1e9
 # https://sites.google.com/ncsu.edu/aerpaw-user-manual/6-sample-experiments-repository/6-1-radio-software/6-1-6-ericsson-experiments
@@ -25,18 +25,22 @@ P_TX = 10 * math.log10(
 R_MAX = 500
 
 
-class InceptionDataset(Dataset):
+class UAVDataset(Dataset):
     def __init__(
         self,
         config: DatasetConfig,
         target: str = TARGET,
         dataset_filenames: list[str] | None = None,
+        max_samples: int | None = None,
+        seed: int = 42,
     ):
         """
         Args:
             config: Dataset configuration
-            target (str): The column name to predict (e.g., 'RSRP_LTE_4G' or 'RSRP_NR_5G').
-                          If False, drop datasets missing the target.
+            target (str): The column name to predict (e.g., 'RSRP_NR_5G').
+            dataset_filenames (list[str]): Specific CSV filenames to load.
+            max_samples (int): If set, limits the dataset to this many samples (shuffled).
+            seed (int): Seed for shuffling when max_samples is used.
         """
         clean_home = Path(str(get_env_var("DATASET_CLEAN_HOME")))
         dataset_dir = clean_home / "data" / config.get_id()
@@ -47,15 +51,11 @@ class InceptionDataset(Dataset):
         self.tx_power = P_TX
         self.fc = CENTER_FREQUENCY
 
-        # Check if the processed datasets already exist. If they are missing,
-        # generate them using the specified config.
         if not self.dataset_dir.exists() or not any(self.dataset_dir.iterdir()):
             process(config)
 
-        # Get a list of csv files. Default to all files if no specific filenames
-        # were defined.
         if self.dataset_filenames is None:
-            csv_files = list(dataset_dir.glob("*.csv"))
+            csv_files = sorted(list(dataset_dir.glob("*.csv")))
         else:
             csv_files = [
                 self.dataset_dir / filename for filename in self.dataset_filenames
@@ -66,24 +66,17 @@ class InceptionDataset(Dataset):
         processed_dfs = []
 
         for df in raw_dfs:
-            if len(set(INCEPTION_COLUMNS).intersection(set(df.columns))) != len(
-                INCEPTION_COLUMNS
-            ):
-                missing_cols: list[str] = []
-                for col in INCEPTION_COLUMNS:
-                    if col not in df.columns:
-                        missing_cols.append(col)
+            if not all(col in df.columns for col in FEATURE_COLUMNS):
+                missing_cols = [col for col in FEATURE_COLUMNS if col not in df.columns]
                 raise ValueError(
-                    f"Columns are missing for Inception features: {', '.join(missing_cols)}"
+                    f"Columns are missing for features: {', '.join(missing_cols)}"
                 )
 
             if self.target not in df.columns:
                 continue
 
-            cols_to_keep = [target] + INCEPTION_COLUMNS
-
+            cols_to_keep = [target] + FEATURE_COLUMNS
             df = df[cols_to_keep]
-
             processed_dfs.append(df)
 
         if not processed_dfs:
@@ -92,6 +85,13 @@ class InceptionDataset(Dataset):
             )
 
         self.data = pd.concat(processed_dfs, ignore_index=True)
+
+        # Apply max_samples if requested
+        if max_samples is not None and max_samples < len(self.data):
+            self.data = self.data.sample(n=max_samples, random_state=seed).reset_index(
+                drop=True
+            )
+
         self.theta = torch.tensor(self.data["elevation"].values, dtype=torch.float32)
         self.phi = torch.tensor(self.data["azimuth"].values, dtype=torch.float32)
         self.d3d = torch.tensor(self.data["d3D"].values, dtype=torch.float32)
@@ -131,7 +131,57 @@ class InceptionDataset(Dataset):
         j_index = torch.argmin(torch.abs(self.d_steps - d3d_val))
         mask = torch.zeros(self.r_max, dtype=torch.bool)
         mask[j_index] = True
-        y_seq = torch.zeros(self.r_max, dtype=torch.float32)
-        y_seq[j_index] = y
+        y_target_seq = torch.zeros(self.r_max, dtype=torch.float32)
+        y_target_seq[j_index] = y
 
-        return x, y_seq, mask
+        return x, y_target_seq, mask
+
+
+def get_uav_splits(
+    dataset: UAVDataset,
+    train_split: float = 0.7,
+    val_split: float = 0.15,
+    test_split: float = 0.15,
+    seed: int = 42,
+) -> tuple[Subset, Subset, Subset]:
+    """
+    Splits the dataset into train, validation, and test sets deterministically.
+    """
+    if not math.isclose(train_split + val_split + test_split, 1.0):
+        raise ValueError("Splits must sum to 1.0")
+
+    n_total = len(dataset)
+    n_train = int(n_total * train_split)
+    n_val = int(n_total * val_split)
+    n_test = n_total - n_train - n_val
+
+    return random_split(
+        dataset,
+        [n_train, n_val, n_test],
+        generator=torch.Generator().manual_seed(seed),
+    )
+
+
+def get_sequential_splits(
+    dataset: UAVDataset,
+    train_frac: float,
+    val_frac: float = 0.0,
+) -> tuple[Subset, Subset, Subset]:
+    """
+    Splits the dataset sequentially (temporal split).
+    Returns (train_subset, val_subset, test_subset).
+    """
+    n_total = len(dataset)
+    n_train = int(n_total * train_frac)
+    n_val = int(n_total * val_frac)
+    n_test = n_total - n_train - n_val
+
+    train_indices = list(range(0, n_train))
+    val_indices = list(range(n_train, n_train + n_val))
+    test_indices = list(range(n_train + n_val, n_total))
+
+    return (
+        Subset(dataset, train_indices),
+        Subset(dataset, val_indices),
+        Subset(dataset, test_indices),
+    )

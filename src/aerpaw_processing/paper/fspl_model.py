@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, random_split
 
-from aerpaw_processing.paper.inception_dataloader import InceptionDataset
+from aerpaw_processing.paper.uav_dataloader import UAVDataset
 from aerpaw_processing.paper.preprocess_utils import DatasetConfig
 
 class FSPLModel(nn.Module):
@@ -130,7 +130,7 @@ def parse_args() -> argparse.Namespace:
         help="Specific CSV filenames inside the dataset dir; defaults to all CSVs found",
     )
     p.add_argument("--batch_size", type=int, default=64)
-    p.add_argument("--val_split", type=float, default=0.138)
+    p.add_argument("--val_split", type=float, default=0.15)
     p.add_argument("--seed", type=int, default=42)
     # I/O
     p.add_argument(
@@ -161,16 +161,17 @@ def main() -> None:
 
     model = FSPLModel().to(dev)
 
-    dataset_all = InceptionDataset(
+    dataset_all = UAVDataset(
         config=config,
         target=args.target,
         dataset_filenames=args.dataset_filenames,
+        seed=args.seed
     )
 
     if args.dataset_filenames is None:
         dataset_dir = dataset_all.dataset_dir
-        csv_files = list(dataset_dir.glob("*.csv"))
-        filenames = sorted([f.name for f in csv_files])
+        csv_files = sorted(list(dataset_dir.glob("*.csv")))
+        filenames = [f.name for f in csv_files]
     else:
         filenames = args.dataset_filenames
 
@@ -182,10 +183,11 @@ def main() -> None:
 
     for filename in filenames:
         try:
-            single_dataset = InceptionDataset(
+            single_dataset = UAVDataset(
                 config=config,
                 target=args.target,
                 dataset_filenames=[filename],
+                seed=args.seed
             )
             evaluate_and_print(
                 filename, single_dataset, model, args.val_split, args.batch_size, dev, args.seed
