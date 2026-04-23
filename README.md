@@ -7,8 +7,9 @@
 
 ---
 
-## Project Overview
+## Summary
 
+### Project Overview
 This project explores the integration of Unmanned Aerial Vehicles (UAVs) in rapidly deploying wireless networks. UAVs are critical for establishing communication in unique scenarios such as disaster relief, remote areas, and tactical operations where traditional ground infrastructure is unavailable.
 
 <p align="center">
@@ -17,8 +18,7 @@ This project explores the integration of Unmanned Aerial Vehicles (UAVs) in rapi
   <em>Cyber-Physical UAV Integrated System</em>
 </p>
 
-## Problem Space
-
+### Problem Space
 Providing connection to the widest area using UAVs introduces unique challenges compared to standard ground-based networks:
 - **3D Environment:** Varying altitude adds a new dimension to Radio Environment Map (REM) modeling.
 - **Data Scarcity:** Operating in novel or changing environments means historical samples are sparse.
@@ -30,7 +30,9 @@ Providing connection to the widest area using UAVs introduces unique challenges 
   <em>3D Environment Map Sampling using UAVs</em>
 </p>
 
-## Methodology & Phases
+## Technical Details
+
+### Methodology & Phases
 
 This 5-month project was structured into four distinct phases to tackle the challenges of modeling aerial networks:
 
@@ -65,7 +67,7 @@ Deep learning models (like Inception) are computationally expensive and power-hu
   <img src="presentation/elm_model.png" alt="Extreme Learning Machine Model" width="400"/>
 </p>
 
-## Key Results & Metrics
+### Key Results & Metrics
 
 The ELM demonstrated exceptional capability for **real-time, in-flight learning** under limited compute and sparse data constraints:
 - **Faster Training:** ELM fits in fractions of a second (~0.1s) compared to Inception (~60s+).
@@ -78,7 +80,7 @@ The ELM demonstrated exceptional capability for **real-time, in-flight learning*
   <em>Real-Time In-Flight Learning Comparison (ELM vs Inception)</em>
 </p>
 
-## Installation & Usage
+### Installation & Usage
 
 The project uses a standard Python build system (`pyproject.toml`). To set up the environment and run the processing scripts:
 
