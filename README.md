@@ -1,8 +1,8 @@
 # 3D Radio Environment Map Modeling for Aerial Wireless Networks
 
-**Graduate Project & Report** | Virginia Tech | M.Eng. in Computer Engineering Candidate
-**Author:** Ryan Frost
-**Collaborators:** Shadab & Dr. Haihan
+**Graduate Project & Report** | Virginia Tech | M.Eng. in Computer Engineering Candidate\
+**Author:** Ryan Frost \
+**Collaborators:** Shadab & Dr. Haihan \
 **Advisor:** Dr. Liu
 
 ---
