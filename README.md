@@ -30,6 +30,8 @@ Providing connection to the widest area using UAVs introduces unique challenges 
   <em>3D Environment Map Sampling using UAVs</em>
 </p>
 
+---
+
 ## Technical Details
 
 ### Methodology & Phases
