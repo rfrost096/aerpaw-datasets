@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 
 BASE_TOWER = towers[0]
 TIMESTAMP_COL = "Timestamp"
+IS_CONNECTED_COL = "Is_Connected"
 TECH_LIST = ["LTE_4G", "NR_5G"]
 
 
@@ -362,6 +363,46 @@ def interpolate_to_label(
     step_list.append(StepEnum.INTERPOLATE_TO_LABEL)
 
     add_step_entry(step_list[-1], working_interpolated, context)
+
+
+def drop_duplicate_timestamps(
+    context: pd.DataFrame, step_list: list[StepEnum], label_col: str
+):
+    working: pd.DataFrame = get_step_entry(step_list[-1], context)
+
+    new_rows = []
+    for _, row in working.iterrows():
+        df: pd.DataFrame = cast(pd.DataFrame, row["data"]).copy()
+
+        label_variants = [label_col] + [
+            get_col_tech_name(label_col, tech) for tech in TECH_LIST
+        ]
+        actual_labels = [c for c in label_variants if c in df.columns]
+
+        if TIMESTAMP_COL in df.columns and df.duplicated(subset=[TIMESTAMP_COL]).any():
+            connected_variants = [IS_CONNECTED_COL] + [
+                get_col_tech_name(IS_CONNECTED_COL, tech) for tech in TECH_LIST
+            ]
+            actual_connected = [c for c in connected_variants if c in df.columns]
+
+            if actual_connected:
+                df = df.sort_values(by=actual_connected, ascending=False)
+            elif actual_labels:
+                df = df.sort_values(by=actual_labels, ascending=False)
+
+            df = df.drop_duplicates(subset=[TIMESTAMP_COL], keep="first")
+            df = df.sort_values(by=[TIMESTAMP_COL]).reset_index(drop=True)
+
+        new_row = {
+            "dataset_id": row["dataset_id"],
+            "flight_name": row["flight_name"],
+            "data": df,
+        }
+        new_rows.append(new_row)
+
+    working_dropped = pd.DataFrame(new_rows)
+    step_list.append(StepEnum.DROP_DUPLICATE_TIMESTAMPS)
+    add_step_entry(step_list[-1], working_dropped, context)
 
 
 def add_relative_time_col(context: pd.DataFrame, step_list: list[StepEnum]):
@@ -904,6 +945,8 @@ def process(config: DatasetConfig):
 
     interpolate_to_label(context, step_list, config.label_col)
 
+    drop_duplicate_timestamps(context, step_list, config.label_col)
+
     add_relative_time_col(context, step_list)
 
     project_coordinates(context, step_list)
@@ -935,7 +978,7 @@ report generation or dataloading scripts."""
     )
     parser.add_argument(
         "--no-delete-columns",
-        dest="delete_columns",
+        dest="remove_cols",
         action="store_false",
         default=config.remove_cols,
         help="""Do not delete any columns. The script renames important columns
@@ -1008,8 +1051,5 @@ Other label columns (SINR, RSRQ) are untested.""",
 
     process(arg_config)
 
-
 if __name__ == "__main__":
-    config = DatasetConfig()
-    config.gen_report = True
-    process(config)
+    process_datasets()

@@ -1,0 +1,242 @@
+% $ biblatex auxiliary file $
+% $ biblatex bbl format version 3.2 $
+% Do not modify the above lines!
+%
+% This is an auxiliary file used by the 'biblatex' package.
+% This file may safely be deleted. It will be recreated by
+% biber as required.
+%
+\begingroup
+\makeatletter
+\@ifundefined{ver@biblatex.sty}
+  {\@latex@error
+     {Missing 'biblatex' package}
+     {The bibliography requires the 'biblatex' package.}
+      \aftergroup\endinput}
+  {}
+\endgroup
+
+
+\refsection{0}
+  \datalist[entry]{none/global//global/global}
+    \entry{b1}{online}{}
+      \name{author}{1}{}{%
+        {{hash=082397acc0431f9cb7bc3306ff3f54da}{%
+           family={Champion},
+           familyi={C\bibinitperiod},
+           given={Zach},
+           giveni={Z\bibinitperiod}}}%
+      }
+      \strng{namehash}{082397acc0431f9cb7bc3306ff3f54da}
+      \strng{fullhash}{082397acc0431f9cb7bc3306ff3f54da}
+      \strng{bibnamehash}{082397acc0431f9cb7bc3306ff3f54da}
+      \strng{authorbibnamehash}{082397acc0431f9cb7bc3306ff3f54da}
+      \strng{authornamehash}{082397acc0431f9cb7bc3306ff3f54da}
+      \strng{authorfullhash}{082397acc0431f9cb7bc3306ff3f54da}
+      \field{sortinit}{1}
+      \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Using drones, a new software tool can bring LTE networks anywhere}
+      \field{year}{2018}
+      \verb{urlraw}
+      \verb https://cse.engin.umich.edu/stories/using-drones-a-new-software-tool-can-bring-lte-networks-anywhere
+      \endverb
+      \verb{url}
+      \verb https://cse.engin.umich.edu/stories/using-drones-a-new-software-tool-can-bring-lte-networks-anywhere
+      \endverb
+    \endentry
+    \entry{b2}{online}{}
+      \name{author}{1}{}{%
+        {{hash=cb01bec016357a9494188f013f4e6570}{%
+           family={AERPAW},
+           familyi={A\bibinitperiod}}}%
+      }
+      \strng{namehash}{cb01bec016357a9494188f013f4e6570}
+      \strng{fullhash}{cb01bec016357a9494188f013f4e6570}
+      \strng{bibnamehash}{cb01bec016357a9494188f013f4e6570}
+      \strng{authorbibnamehash}{cb01bec016357a9494188f013f4e6570}
+      \strng{authornamehash}{cb01bec016357a9494188f013f4e6570}
+      \strng{authorfullhash}{cb01bec016357a9494188f013f4e6570}
+      \field{extraname}{1}
+      \field{sortinit}{2}
+      \field{sortinithash}{8b555b3791beccb63322c22f3320aa9a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{LTE I/Q MEasurements at Multiple UAV Heights}
+      \field{year}{2022}
+      \verb{urlraw}
+      \verb https://aerpaw.org/dataset/april-2022-lte-i-q-measurements-at-multiple-uav-heights/
+      \endverb
+      \verb{url}
+      \verb https://aerpaw.org/dataset/april-2022-lte-i-q-measurements-at-multiple-uav-heights/
+      \endverb
+    \endentry
+    \entry{b3}{online}{}
+      \name{author}{1}{}{%
+        {{hash=cb01bec016357a9494188f013f4e6570}{%
+           family={AERPAW},
+           familyi={A\bibinitperiod}}}%
+      }
+      \strng{namehash}{cb01bec016357a9494188f013f4e6570}
+      \strng{fullhash}{cb01bec016357a9494188f013f4e6570}
+      \strng{bibnamehash}{cb01bec016357a9494188f013f4e6570}
+      \strng{authorbibnamehash}{cb01bec016357a9494188f013f4e6570}
+      \strng{authornamehash}{cb01bec016357a9494188f013f4e6570}
+      \strng{authorfullhash}{cb01bec016357a9494188f013f4e6570}
+      \field{extraname}{2}
+      \field{sortinit}{3}
+      \field{sortinithash}{ad6fe7482ffbd7b9f99c9e8b5dccd3d7}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Android-based 4G LTE Measurements for Semi-Circular UAV Trajectory around a Private AERPAW Base Station}
+      \field{year}{2025}
+      \verb{urlraw}
+      \verb https://aerpaw.org/dataset/dataset-22-android-based-4g-lte-measurements-for-semi-circular-uav-trajectory-around-a-private-aerpaw-base-station/
+      \endverb
+      \verb{url}
+      \verb https://aerpaw.org/dataset/dataset-22-android-based-4g-lte-measurements-for-semi-circular-uav-trajectory-around-a-private-aerpaw-base-station/
+      \endverb
+    \endentry
+    \entry{b4}{online}{}
+      \name{author}{1}{}{%
+        {{hash=cb01bec016357a9494188f013f4e6570}{%
+           family={AERPAW},
+           familyi={A\bibinitperiod}}}%
+      }
+      \strng{namehash}{cb01bec016357a9494188f013f4e6570}
+      \strng{fullhash}{cb01bec016357a9494188f013f4e6570}
+      \strng{bibnamehash}{cb01bec016357a9494188f013f4e6570}
+      \strng{authorbibnamehash}{cb01bec016357a9494188f013f4e6570}
+      \strng{authornamehash}{cb01bec016357a9494188f013f4e6570}
+      \strng{authorfullhash}{cb01bec016357a9494188f013f4e6570}
+      \field{extraname}{3}
+      \field{sortinit}{4}
+      \field{sortinithash}{9381316451d1b9788675a07e972a12a7}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Detailed Cellular and Throughput Measurements for Horizontal Sweeps of a UAV across a Private AERPAW Base Station, using Keysight Nemo and PawPrints}
+      \field{year}{2025}
+      \verb{urlraw}
+      \verb https://aerpaw.org/dataset/dataset-24-android-based-4g-lte-measurements-for-semi-circular-uav-trajectory-around-a-private-aerpaw-base-station/
+      \endverb
+      \verb{url}
+      \verb https://aerpaw.org/dataset/dataset-24-android-based-4g-lte-measurements-for-semi-circular-uav-trajectory-around-a-private-aerpaw-base-station/
+      \endverb
+    \endentry
+    \entry{b5}{article}{}
+      \name{author}{10}{}{%
+        {{hash=685ec3b02f9aa64c2818d70b3d5734b9}{%
+           family={Ismail\bibnamedelima Fawaz},
+           familyi={I\bibinitperiod\bibinitdelim F\bibinitperiod},
+           given={Hassan},
+           giveni={H\bibinitperiod}}}%
+        {{hash=899df7e3e43e3177538b45c86bd9f037}{%
+           family={Lucas},
+           familyi={L\bibinitperiod},
+           given={Benjamin},
+           giveni={B\bibinitperiod}}}%
+        {{hash=fcc574d00402a54e3441aab7924f60c6}{%
+           family={Forestier},
+           familyi={F\bibinitperiod},
+           given={Germain},
+           giveni={G\bibinitperiod}}}%
+        {{hash=6e5afdd66f3d52c264c03e3b5c510701}{%
+           family={Pelletier},
+           familyi={P\bibinitperiod},
+           given={Charlotte},
+           giveni={C\bibinitperiod}}}%
+        {{hash=4948e91023afddce3c621dd38f00be19}{%
+           family={Schmidt},
+           familyi={S\bibinitperiod},
+           given={Daniel\bibnamedelima F.},
+           giveni={D\bibinitperiod\bibinitdelim F\bibinitperiod}}}%
+        {{hash=cc9d8ad55a0e41f6e52142507ae4cf56}{%
+           family={Weber},
+           familyi={W\bibinitperiod},
+           given={Jonathan},
+           giveni={J\bibinitperiod}}}%
+        {{hash=021b501817a8d003c9b230aaed364b70}{%
+           family={Webb},
+           familyi={W\bibinitperiod},
+           given={Geoffrey\bibnamedelima I.},
+           giveni={G\bibinitperiod\bibinitdelim I\bibinitperiod}}}%
+        {{hash=d350ee2220fd81c99504110da25de7df}{%
+           family={Idoumghar},
+           familyi={I\bibinitperiod},
+           given={Lhassane},
+           giveni={L\bibinitperiod}}}%
+        {{hash=cf881384e0d7c8971ea9353d846fdaba}{%
+           family={Muller},
+           familyi={M\bibinitperiod},
+           given={Pierre-Alain},
+           giveni={P\bibinithyphendelim A\bibinitperiod}}}%
+        {{hash=270fff17f2b0edbcb28e6c8dc2d70c64}{%
+           family={Petitjean},
+           familyi={P\bibinitperiod},
+           given={François},
+           giveni={F\bibinitperiod}}}%
+      }
+      \list{publisher}{1}{%
+        {Springer}%
+      }
+      \strng{namehash}{e0db640c6d4a50b9af92d0646b6aa1d8}
+      \strng{fullhash}{8d4d6fb863a53d9aceacc943491fe90f}
+      \strng{bibnamehash}{e0db640c6d4a50b9af92d0646b6aa1d8}
+      \strng{authorbibnamehash}{e0db640c6d4a50b9af92d0646b6aa1d8}
+      \strng{authornamehash}{e0db640c6d4a50b9af92d0646b6aa1d8}
+      \strng{authorfullhash}{8d4d6fb863a53d9aceacc943491fe90f}
+      \field{sortinit}{5}
+      \field{sortinithash}{20e9b4b0b173788c5dace24730f47d8c}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Data Mining and Knowledge Discovery}
+      \field{number}{6}
+      \field{title}{InceptionTime: Finding AlexNet for time series classification}
+      \field{volume}{34}
+      \field{year}{2020}
+      \field{pages}{1936\bibrangedash 1962}
+      \range{pages}{27}
+      \verb{doi}
+      \verb 10.1007/s10618-020-00710-y
+      \endverb
+    \endentry
+    \entry{b6}{article}{}
+      \name{author}{1}{}{%
+        {{hash=d8c478eeb0d2fea80a3958da62c4d5b6}{%
+           family={Biçici},
+           familyi={B\bibinitperiod},
+           given={Ergun},
+           giveni={E\bibinitperiod}}}%
+      }
+      \strng{namehash}{d8c478eeb0d2fea80a3958da62c4d5b6}
+      \strng{fullhash}{d8c478eeb0d2fea80a3958da62c4d5b6}
+      \strng{bibnamehash}{d8c478eeb0d2fea80a3958da62c4d5b6}
+      \strng{authorbibnamehash}{d8c478eeb0d2fea80a3958da62c4d5b6}
+      \strng{authornamehash}{d8c478eeb0d2fea80a3958da62c4d5b6}
+      \strng{authorfullhash}{d8c478eeb0d2fea80a3958da62c4d5b6}
+      \field{sortinit}{6}
+      \field{sortinithash}{b33bc299efb3c36abec520a4c896a66d}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{eprintclass}{cs.LG}
+      \field{eprinttype}{arXiv}
+      \field{title}{Extreme Learning Machines for Fast Training of Click-Through Rate Prediction Models}
+      \field{year}{2024}
+      \verb{doi}
+      \verb 10.48550/arXiv.2406.17828
+      \endverb
+      \verb{eprint}
+      \verb 2406.17828
+      \endverb
+      \verb{urlraw}
+      \verb https://arxiv.org/abs/2406.17828
+      \endverb
+      \verb{url}
+      \verb https://arxiv.org/abs/2406.17828
+      \endverb
+    \endentry
+  \enddatalist
+\endrefsection
+\endinput
+

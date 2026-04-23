@@ -1,5 +1,4 @@
 import argparse
-import math
 import time
 import torch
 import numpy as np
@@ -10,7 +9,7 @@ from aerpaw_processing.paper.uav_dataloader import UAVDataset, get_uav_splits, g
 from aerpaw_processing.paper.fspl_model import FSPLModel, evaluate as evaluate_fspl
 from aerpaw_processing.paper.inception_model import InceptionTime, train as train_inception, evaluate as evaluate_inception
 from aerpaw_processing.paper.elm_model import ExtremeLearningMachine, evaluate as evaluate_elm
-from aerpaw_processing.paper.preprocess_utils import DatasetConfig
+from aerpaw_processing.paper.preprocess_utils import DatasetConfig, get_env_var
 
 # Constants
 TARGET = "RSRP_NR_5G"
@@ -68,7 +67,7 @@ def run_experiment(args):
     sample_sizes = [s for s in sample_sizes if s <= len(train_ds_full)]
     
     for n in sample_sizes:
-        print(f"\nTraining Inception with {n} samples (Target RMSE: {TARGET_RMSE})...")
+        print(f"\nTraining Inception with {n} samples (Target RSME = 5)...")
         # To be consistent with the plan, we subset the training data but use standard val_split for early stopping.
         # We'll use a local UAVDataset with max_samples for simplicity in the train() call.
         subset_dataset = UAVDataset(config=config, target=TARGET, max_samples=n + len(val_ds_full) + len(test_ds_full), seed=seed)
@@ -77,11 +76,11 @@ def run_experiment(args):
         model, epochs_run = train_inception(
             subset_dataset, 
             val_split=0.15,
-            epochs=25, # New max epochs per request
+            epochs=50, 
             seed=seed,
             device=device_str,
             checkpoint_dir=None,
-            target_rmse=TARGET_RMSE
+            target_rmse=5
         )
         train_time = time.time() - t_train_start
         
@@ -96,6 +95,33 @@ def run_experiment(args):
             "epochs": epochs_run,
             "inf_time": inf_time
         })
+
+    print("\n--- 100-epoch Limit Run ---")
+    print(f"Training Inception with {len(train_ds_full)} samples (100 epochs)...")
+    subset_dataset_100 = UAVDataset(config=config, target=TARGET, max_samples=len(train_ds_full) + len(val_ds_full) + len(test_ds_full), seed=seed)
+    
+    t_train_start = time.time()
+    model_100, epochs_run_100 = train_inception(
+        subset_dataset_100, 
+        val_split=0.15,
+        epochs=100, 
+        seed=seed,
+        device=device_str,
+        checkpoint_dir=None,
+    )
+    train_time_100 = time.time() - t_train_start
+    
+    t0 = time.time()
+    metrics_100 = evaluate_inception(model_100, test_loader, device)
+    inf_time_100 = (time.time() - t0) / len(test_ds_full)
+    
+    results["inception"]["limit_100"] = {
+        "n": len(train_ds_full),
+        "metrics": metrics_100,
+        "train_time": train_time_100,
+        "epochs": epochs_run_100,
+        "inf_time": inf_time_100
+    }
 
     # --- Stage 3: Extreme Learning Machine (ELM) Experiments ---
     print("\n--- Stage 3: Extreme Learning Machine (ELM) Sample Constraints ---")
@@ -122,79 +148,107 @@ def run_experiment(args):
         })
 
     # --- Stage 4: Real-Time In-Flight Scenario ---
-    print(f"\n--- Stage 4: Real-Time In-Flight Scenario ({args.flight}) ---")
-    flight_dataset = UAVDataset(config=config, target=TARGET, dataset_filenames=[args.flight], seed=seed)
+    print(f"\n--- Stage 4: Real-Time In-Flight Scenario ---")
     
+    # Get all available CSV files in the dataset directory
+    clean_home = Path(str(get_env_var("DATASET_CLEAN_HOME")))
+    dataset_dir = clean_home / "data" / config.get_id()
+    
+    import pandas as pd
+    all_flight_files = []
+    for f in sorted(dataset_dir.glob("*.csv")):
+        df = pd.read_csv(f, nrows=0)
+        if TARGET in df.columns:
+            all_flight_files.append(f.name)
+            
+    print(f"Found {len(all_flight_files)} flights for real-time analysis.")
+
     fractions = [0.2, 0.4, 0.6, 0.8]
+    
+    # Structure to hold results for all flights to calculate averages
+    all_rt_results = {frac: [] for frac in fractions}
+    specific_flight_results = []
+
+    for flight_file in all_flight_files:
+        is_specific = (flight_file == args.flight)
+        print(f"\nAnalyzing flight: {flight_file} {'(Target Flight)' if is_specific else ''}")
+        
+        flight_dataset = UAVDataset(config=config, target=TARGET, dataset_filenames=[flight_file], seed=seed)
+        
+        for frac in fractions:
+            print(f"  Processing {int(frac*100)}% flight data...")
+            train_ds_rt, _, test_ds_rt = get_sequential_splits(flight_dataset, train_frac=frac, val_frac=0.0)
+            
+            if len(test_ds_rt) == 0:
+                print(f"    Warning: No test samples for fraction {frac}. Skipping.")
+                continue
+
+            # Training Inception
+            model_rt = InceptionTime(in_channels=8, r_max=500).to(device)
+            optimizer = torch.optim.AdamW(model_rt.parameters(), lr=1e-3)
+            train_loader_rt = DataLoader(train_ds_rt, batch_size=BATCH_SIZE, shuffle=True)
+            
+            t_inc_start = time.time()
+            model_rt.train()
+            for epoch in range(25):
+                for x, y_seq, mask in train_loader_rt:
+                    x, y_seq, mask = x.to(device), y_seq.to(device), mask.to(device)
+                    optimizer.zero_grad()
+                    pred = model_rt(x)
+                    loss = torch.nn.functional.smooth_l1_loss(pred[mask], y_seq[mask].float())
+                    loss.backward()
+                    optimizer.step()
+            inc_train_time = time.time() - t_inc_start
+            
+            # Training ELM
+            elm_rt = ExtremeLearningMachine(in_channels=8, r_max=500, hidden_size=1024, seed=seed).to(device)
+            t_elm_start = time.time()
+            elm_rt.fit(train_loader_rt, device)
+            elm_train_time = time.time() - t_elm_start
+            
+            # Evaluation
+            test_loader_rt = DataLoader(test_ds_rt, batch_size=BATCH_SIZE, shuffle=False)
+            
+            t0 = time.time()
+            inc_metrics = evaluate_inception(model_rt, test_loader_rt, device)
+            inc_inf_time = (time.time() - t0) / len(test_ds_rt)
+            
+            t0 = time.time()
+            elm_metrics = evaluate_elm(elm_rt, test_loader_rt, device)
+            elm_inf_time = (time.time() - t0) / len(test_ds_rt)
+            
+            res_entry = {
+                "frac": frac,
+                "inc_rmse": inc_metrics["RMSE"],
+                "elm_rmse": elm_metrics["RMSE"],
+                "inc_train_time": inc_train_time,
+                "elm_train_time": elm_train_time,
+                "inc_inf_time": inc_inf_time,
+                "elm_inf_time": elm_inf_time
+            }
+            
+            all_rt_results[frac].append(res_entry)
+            if is_specific:
+                specific_flight_results.append(res_entry)
+
+    # Calculate averages across all flights
+    averaged_rt_results = []
     for frac in fractions:
-        print(f"\nProcessing {int(frac*100)}% flight data...")
-        train_ds_rt, _, test_ds_rt = get_sequential_splits(flight_dataset, train_frac=frac, val_frac=0.0)
-        
-        # Inception training (Full 25 epochs, no early stopping to see full potential)
-        # We need a small val set for the train() function even if not strictly needed for analytical comparison
-        # Let's take a tiny slice of train for val to satisfy the train() API
-        n_train_rt = len(train_ds_rt)
-        n_val_rt = max(1, int(n_train_rt * 0.1))
-        n_train_real = n_train_rt - n_val_rt
-        train_ds_real = torch.utils.data.Subset(train_ds_rt, range(n_train_real))
-        val_ds_real = torch.utils.data.Subset(train_ds_rt, range(n_train_real, n_train_rt))
-        
-        # To use train_inception, we need a Dataset object or modify train to accept loaders.
-        # Since train() creates loaders from dataset, we'll wrap our Subset in a dummy object if needed,
-        # but train() expects UAVDataset attributes like r_max. 
-        # Actually, let's just manually run the training loop here or refactor.
-        # For brevity, we'll simulate the train() call by passing the full flight_dataset and 
-        # using Subset indices manually in a local loop.
-        
-        # Training Inception
-        print(f"Training InceptionTime on {len(train_ds_rt)} samples...")
-        model_rt = InceptionTime(in_channels=8, r_max=500).to(device)
-        optimizer, scheduler = torch.optim.AdamW(model_rt.parameters(), lr=1e-3), None # Simplified for RT
-        train_loader_rt = DataLoader(train_ds_rt, batch_size=BATCH_SIZE, shuffle=True)
-        
-        t_inc_start = time.time()
-        model_rt.train()
-        for epoch in range(25):
-            for x, y_seq, mask in train_loader_rt:
-                x, y_seq, mask = x.to(device), y_seq.to(device), mask.to(device)
-                optimizer.zero_grad()
-                pred = model_rt(x)
-                loss = torch.nn.functional.smooth_l1_loss(pred[mask], y_seq[mask].float())
-                loss.backward()
-                optimizer.step()
-        inc_train_time = time.time() - t_inc_start
-        
-        # Training ELM
-        print(f"Fitting ELM on {len(train_ds_rt)} samples...")
-        elm_rt = ExtremeLearningMachine(in_channels=8, r_max=500, hidden_size=1024, seed=seed).to(device)
-        t_elm_start = time.time()
-        elm_rt.fit(train_loader_rt, device)
-        elm_train_time = time.time() - t_elm_start
-        
-        # Evaluation on remaining unseen data
-        test_loader_rt = DataLoader(test_ds_rt, batch_size=BATCH_SIZE, shuffle=False)
-        
-        # Inception Metrics
-        t0 = time.time()
-        inc_metrics = evaluate_inception(model_rt, test_loader_rt, device)
-        inc_inf_time = (time.time() - t0) / len(test_ds_rt)
-        
-        # ELM Metrics
-        t0 = time.time()
-        elm_metrics = evaluate_elm(elm_rt, test_loader_rt, device)
-        elm_inf_time = (time.time() - t0) / len(test_ds_rt)
-        
-        results["real_time"].append({
+        entries = all_rt_results[frac]
+        if not entries: continue
+        avg_entry = {
             "frac": frac,
-            "train_samples": len(train_ds_rt),
-            "test_samples": len(test_ds_rt),
-            "inc_rmse": inc_metrics["RMSE"],
-            "elm_rmse": elm_metrics["RMSE"],
-            "inc_train_time": inc_train_time,
-            "elm_train_time": elm_train_time,
-            "inc_inf_time": inc_inf_time,
-            "elm_inf_time": elm_inf_time
-        })
+            "inc_rmse": np.mean([e["inc_rmse"] for e in entries]),
+            "elm_rmse": np.mean([e["elm_rmse"] for e in entries]),
+            "inc_train_time": np.mean([e["inc_train_time"] for e in entries]),
+            "elm_train_time": np.mean([e["elm_train_time"] for e in entries]),
+            "inc_inf_time": np.mean([e["inc_inf_time"] for e in entries]),
+            "elm_inf_time": np.mean([e["elm_inf_time"] for e in entries])
+        }
+        averaged_rt_results.append(avg_entry)
+
+    results["real_time"] = specific_flight_results
+    results["real_time_avg"] = averaged_rt_results
 
     # --- Plotting ---
     print("\nGenerating Plots...")
@@ -228,11 +282,16 @@ def run_experiment(args):
     # 3. Real-Time Accuracy progression
     plt.figure(figsize=(10, 6))
     rt_fracs = [r["frac"]*100 for r in results["real_time"]]
-    plt.plot(rt_fracs, [r["inc_rmse"] for r in results["real_time"]], marker='o', label='InceptionTime')
-    plt.plot(rt_fracs, [r["elm_rmse"] for r in results["real_time"]], marker='s', label='ELM')
+    plt.plot(rt_fracs, [r["inc_rmse"] for r in results["real_time"]], marker='o', label='Inception (Target Flight)')
+    plt.plot(rt_fracs, [r["elm_rmse"] for r in results["real_time"]], marker='s', label='ELM (Target Flight)')
+    
+    rt_avg_fracs = [r["frac"]*100 for r in results["real_time_avg"]]
+    plt.plot(rt_avg_fracs, [r["inc_rmse"] for r in results["real_time_avg"]], marker='o', linestyle='--', label='Inception (Avg All Flights)')
+    plt.plot(rt_avg_fracs, [r["elm_rmse"] for r in results["real_time_avg"]], marker='s', linestyle='--', label='ELM (Avg All Flights)')
+    
     plt.xlabel("% Flight Data used for Training")
     plt.ylabel("RMSE on Remaining Flight (dB)")
-    plt.title(f"Real-Time In-Flight Adaptation ({args.flight})")
+    plt.title(f"Real-Time In-Flight Adaptation")
     plt.legend(); plt.grid(True)
     plt.savefig(output_dir / "real_time_accuracy.png")
 
@@ -261,6 +320,13 @@ This section shows how much data is required for InceptionTime to reach a target
     for r in results["inception"]["sample_constraints"]:
         report_content += f"| {r['n']} | {r['metrics']['RMSE']:.4f} | {r['epochs']} | {r['train_time']:.2f} |\n"
 
+    if "limit_100" in results["inception"]:
+        r_100 = results["inception"]["limit_100"]
+        report_content += f"\n**100-Epoch Limit Run (All Samples):**\n"
+        report_content += f"- **Test RMSE**: {r_100['metrics']['RMSE']:.4f} dB\n"
+        report_content += f"- **Epochs Run**: {r_100['epochs']}\n"
+        report_content += f"- **Train Time**: {r_100['train_time']:.2f} s\n"
+
     report_content += """
 ## 3. Lightweight Edge Model: ELM
 ELM results on the same global sample constraints.
@@ -274,20 +340,31 @@ ELM results on the same global sample constraints.
     report_content += f"""
 ## 4. Real-Time In-Flight Scenario
 **Target Flight**: `{args.flight}`
-This experiment simulates a UAV collecting data and adapting its model mid-flight. At each stage, the model is trained on the first X% of the flight and tested on the remaining (unseen) path.
+This experiment simulates a UAV collecting data and adapting its model mid-flight. Results are shown for the specific target flight and as an average across all {len(all_flight_files)} available flights.
 
-| % Train | Samples | Inc RMSE | ELM RMSE | Inc Train (s) | ELM Fit (s) | Inc Inf (ms) | ELM Inf (ms) |
-|---------|---------|----------|----------|---------------|-------------|--------------|--------------|
+### Target Flight: `{args.flight}`
+| % Train | Inc RMSE | ELM RMSE | Inc Train (s) | ELM Fit (s) | Inc Inf (ms) | ELM Inf (ms) |
+|---------|----------|----------|---------------|-------------|--------------|--------------|
 """
     for r in results["real_time"]:
-        report_content += (f"| {int(r['frac']*100)}% | {r['train_samples']} | {r['inc_rmse']:.4f} | {r['elm_rmse']:.4f} | "
+        report_content += (f"| {int(r['frac']*100)}% | {r['inc_rmse']:.4f} | {r['elm_rmse']:.4f} | "
+                           f"{r['inc_train_time']:.2f} | {r['elm_train_time']:.4f} | "
+                           f"{r['inc_inf_time']*1000:.4f} | {r['elm_inf_time']*1000:.4f} |\n")
+
+    report_content += f"""
+### Average Across All Flights
+| % Train | Inc RMSE | ELM RMSE | Inc Train (s) | ELM Fit (s) | Inc Inf (ms) | ELM Inf (ms) |
+|---------|----------|----------|---------------|-------------|--------------|--------------|
+"""
+    for r in results["real_time_avg"]:
+        report_content += (f"| {int(r['frac']*100)}% | {r['inc_rmse']:.4f} | {r['elm_rmse']:.4f} | "
                            f"{r['inc_train_time']:.2f} | {r['elm_train_time']:.4f} | "
                            f"{r['inc_inf_time']*1000:.4f} | {r['elm_inf_time']*1000:.4f} |\n")
 
     report_content += f"""
 ## 5. Visual Summary
 ![Real-Time Accuracy](plots/real_time_accuracy.png)
-*Figure: Accuracy improvement as the UAV collects more data from the specific flight path.*
+*Figure: Accuracy improvement as the UAV collects more data. Solid lines represent the target flight, dashed lines represent the average across all flights.*
 
 ## Reproducibility
 To recreate these exact results, run the following command:

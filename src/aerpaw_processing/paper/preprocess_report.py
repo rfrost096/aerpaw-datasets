@@ -14,6 +14,8 @@ from aerpaw_processing.paper.preprocess_utils import (
     get_label_col,
     get_step_entry,
     get_env_var,
+    get_col_tech_name,
+    TECH_LIST
 )
 
 load_env()
@@ -230,14 +232,15 @@ def report_read_data(step_df: pd.DataFrame, report: list[str]):
 def report_rename_columns(
     context: pd.DataFrame, step_df: pd.DataFrame, report: list[str]
 ):
-    read_data_df = get_step_entry(StepEnum.READ_DATA, context)
+    prev_step_df = get_step_entry(StepEnum.READ_DATA, context)
+
     report.append("- Columns renamed to standard names using `alias_map`.")
     report.append("\n### Columns Renamed per Dataset\n")
     report.append("| Dataset | Tech | Flight | Filepath | Cols Changed |")
     report.append("| --- | --- | --- | --- | --- |")
 
     for i in range(len(step_df)):
-        old_df = read_data_df.iloc[i]["data"]
+        old_df = prev_step_df.iloc[i]["data"]
         new_df = cast(pd.DataFrame, step_df).iloc[i]["data"]
 
         # Count columns where the name has changed
@@ -351,14 +354,20 @@ def report_combine_flight_techs(
 
 
 def report_interpolate_to_label(
-    context: pd.DataFrame, step_df: pd.DataFrame, report: list[str]
+        context: pd.DataFrame, step_df: pd.DataFrame, report: list[str], label_col: str
 ):
+    label_variants = [label_col] + [
+        get_col_tech_name(label_col, tech) for tech in TECH_LIST
+    ]
 
     prev_step_df = get_step_entry(StepEnum.COMBINE_FLIGHT_TECHS, context)
     report.append("- Interpolated and standardized data around label columns.")
     report.append("\n### Interpolated Datasets\n")
-    report.append("| Dataset | Flight | Rows | Cols | Prev Rows |")
-    report.append("| --- | --- | --- | --- | --- |")
+    
+    headers = ["Dataset", "Flight", "Rows", "Cols", "Prev Rows"] + [f"{lv} Count" for lv in label_variants]
+    report.append("| " + " | ".join(headers) + " |")
+    report.append("| " + " | ".join(["---"] * len(headers)) + " |")
+    
     for _, r in cast(pd.DataFrame, step_df).iterrows():
         df = r["data"]
         matched_prev = prev_step_df[
@@ -368,8 +377,42 @@ def report_interpolate_to_label(
         prev_rows = (
             matched_prev.iloc[0]["data"].shape[0] if not matched_prev.empty else 0
         )
+        
+        counts = []
+        for lv in label_variants:
+            if lv in df.columns:
+                counts.append(f"{df[lv].notna().sum():,}")
+            else:
+                counts.append("0")
+                
+        counts_str = " | ".join(counts)
+        
         report.append(
-            f"| {r['dataset_id']} | {r['flight_name']} | {df.shape[0]:,} | {df.shape[1]} | {prev_rows:,} |"
+            f"| {r['dataset_id']} | {r['flight_name']} | {df.shape[0]:,} | {df.shape[1]} | {prev_rows:,} | {counts_str} |"
+        )
+    report.append("\n")
+
+
+def report_drop_duplicate_timestamps(
+    context: pd.DataFrame, step_df: pd.DataFrame, report: list[str]
+):
+    prev_step_df = get_step_entry(StepEnum.INTERPOLATE_TO_LABEL, context)
+    report.append("- Dropped duplicate timestamps based on connection status or max label value.")
+    report.append("\n### Dropped Duplicates\n")
+    report.append("| Dataset | Flight | Rows | Cols | Prev Rows | Dropped |")
+    report.append("| --- | --- | --- | --- | --- | --- |")
+    for _, r in cast(pd.DataFrame, step_df).iterrows():
+        df = r["data"]
+        matched_prev = prev_step_df[
+            (prev_step_df["dataset_id"] == r["dataset_id"])
+            & (prev_step_df["flight_name"] == r["flight_name"])
+        ]
+        prev_rows = (
+            matched_prev.iloc[0]["data"].shape[0] if not matched_prev.empty else 0
+        )
+        dropped = prev_rows - df.shape[0]
+        report.append(
+            f"| {r['dataset_id']} | {r['flight_name']} | {df.shape[0]:,} | {df.shape[1]} | {prev_rows:,} | {dropped:,} |"
         )
     report.append("\n")
 
@@ -411,7 +454,10 @@ def generate_report(context: pd.DataFrame, config: DatasetConfig):
             report_combine_flight_techs(context, step_df, report)
 
         elif step_val == StepEnum.INTERPOLATE_TO_LABEL.value:
-            report_interpolate_to_label(context, step_df, report)
+            report_interpolate_to_label(context, step_df, report, config.label_col)
+
+        elif step_val == StepEnum.DROP_DUPLICATE_TIMESTAMPS.value:
+            report_drop_duplicate_timestamps(context, step_df, report)
 
         elif step_val == StepEnum.PROJECT_COORDINATES.value:
             report.append(
@@ -498,17 +544,7 @@ def generate_report(context: pd.DataFrame, config: DatasetConfig):
                         .reset_index()
                     )
 
-                    fig = make_subplots(specs=[[{"secondary_y": True}]])
-                    fig.add_trace(
-                        go.Bar(
-                            x=avg_df["radial_bin"],
-                            y=avg_df["num_pairs"],
-                            name="Total Num Pairs",
-                            opacity=0.3,
-                            marker_color="red",
-                        ),
-                        secondary_y=True,
-                    )
+                    fig = go.Figure()
                     fig.add_trace(
                         go.Scatter(
                             x=avg_df["radial_bin"],
@@ -516,8 +552,7 @@ def generate_report(context: pd.DataFrame, config: DatasetConfig):
                             name="Averaged Correlation",
                             mode="lines+markers",
                             line=dict(color="blue"),
-                        ),
-                        secondary_y=False,
+                        )
                     )
                     fig.update_layout(
                         title_text="Spatial Correlation: Averaged Across All Datasets",
@@ -525,10 +560,7 @@ def generate_report(context: pd.DataFrame, config: DatasetConfig):
                     )
                     fig.update_xaxes(title_text="Radial separation distance (m)")
                     fig.update_yaxes(
-                        title_text="Avg Correlation", secondary_y=False, range=[-1.0, 1.0]
-                    )
-                    fig.update_yaxes(
-                        title_text="Total Num Pairs", secondary_y=True, showgrid=False
+                        title_text="Avg Correlation", range=[-1.0, 1.0]
                     )
 
                     base_name = "all_datasets_spatial_correlation_avg"
@@ -560,14 +592,14 @@ def generate_report(context: pd.DataFrame, config: DatasetConfig):
             num_phi_bins = int(np.ceil(2 * np.pi / BIN_SIZE))
 
             for _, r in cast(pd.DataFrame, step_df).iterrows():
-                df: pd.DataFrame = r["data"]
-                if not df.empty:
-                    df = df[df["radial_bin"] <= 200]
+                df_2: pd.DataFrame = r["data"]
+                if not df_2.empty:
+                    df_2 = df_2[df_2["radial_bin"] <= 200]
                 flight_name = r["flight_name"]
                 dataset_id = r["dataset_id"]
                 bin_stats = r.get("bin_stats")
 
-                if df.empty:
+                if df_2.empty:
                     report.append(f"#### Flight: {flight_name}\n")
                     report.append("No correlation data generated.\n")
                     continue
@@ -576,8 +608,8 @@ def generate_report(context: pd.DataFrame, config: DatasetConfig):
 
                 fig.add_trace(
                     go.Bar(
-                        x=df["radial_bin"],
-                        y=df["num_pairs"],
+                        x=df_2["radial_bin"],
+                        y=df_2["num_pairs"],
                         name="Num Points",
                         opacity=0.3,
                         marker_color="red",
@@ -587,8 +619,8 @@ def generate_report(context: pd.DataFrame, config: DatasetConfig):
 
                 fig.add_trace(
                     go.Scatter(
-                        x=df["radial_bin"],
-                        y=df["r"],
+                        x=df_2["radial_bin"],
+                        y=df_2["r"],
                         name="Avg Correlation",
                         mode="lines+markers",
                         line=dict(color="blue"),
@@ -825,17 +857,7 @@ def generate_report(context: pd.DataFrame, config: DatasetConfig):
                         .reset_index()
                     )
 
-                    fig = make_subplots(specs=[[{"secondary_y": True}]])
-                    fig.add_trace(
-                        go.Bar(
-                            x=avg_df["spatial_bin"],
-                            y=avg_df["num_pairs"],
-                            name="Total Num Pairs",
-                            opacity=0.3,
-                            marker_color="green",
-                        ),
-                        secondary_y=True,
-                    )
+                    fig = go.Figure()
                     fig.add_trace(
                         go.Scatter(
                             x=avg_df["spatial_bin"],
@@ -843,8 +865,7 @@ def generate_report(context: pd.DataFrame, config: DatasetConfig):
                             name="Averaged Correlation",
                             mode="lines+markers",
                             line=dict(color="orange"),
-                        ),
-                        secondary_y=False,
+                        )
                     )
                     fig.update_layout(
                         title_text="Fast Fading Correlation: Averaged Across All Datasets",
@@ -852,10 +873,7 @@ def generate_report(context: pd.DataFrame, config: DatasetConfig):
                     )
                     fig.update_xaxes(title_text="Spatial separation distance (m)")
                     fig.update_yaxes(
-                        title_text="Avg Correlation", secondary_y=False, range=[-1.0, 1.0]
-                    )
-                    fig.update_yaxes(
-                        title_text="Total Num Pairs", secondary_y=True, showgrid=False
+                        title_text="Avg Correlation", range=[-1.0, 2.0]
                     )
 
                     base_name = "all_datasets_ff_correlation_avg"

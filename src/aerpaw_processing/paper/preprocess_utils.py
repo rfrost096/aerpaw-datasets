@@ -34,6 +34,7 @@ class StepEnum(Enum):
     COMBINE_TECH_FILES = "combine_tech_files"
     COMBINE_FLIGHT_TECHS = "combine_flight_techs"
     INTERPOLATE_TO_LABEL = "interpolate_to_label"
+    DROP_DUPLICATE_TIMESTAMPS = "drop_duplicate_timestamps"
     ADD_RELATIVE_TIME = "add_relative_time"
     PROJECT_COORDINATES = "project_coordinates"
     MAD_FILTER = "mad_filter"

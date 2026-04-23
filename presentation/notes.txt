@@ -1,0 +1,15 @@
+Start a plan for a multi-stage refactor of the machine learning pipeline. Here is a brief history of the repo. I started with creating a pytorch data loader that creates 1-D       
+   sequences with 8 features from UAV RSRP and trajectory measurements. Then I had AI generate an Inception Time model to use the data loader and act as a deep-learning baseline.     
+   Then I had AI generate the deterministic Line of Sight Path Loss model for a physical baseline. Then I had AI generate an extreme learning machine model to understand a more       
+   recent lighter model. Now I will describe the story I am trying to tell. I want to show the transition from physics-based deterministic path-loss model to more recent developments 
+   in deep learning models (like inception), then to the cutting-edge lightweight models (like extreme learning machine). I want to start by showing the results of the line of sight  
+   model on each individual flight, then the results of aggregating all flights. Then I want to show the Inception model utilizing all possible data points and a standard deep        
+   learning flow to get the best validation result. I want a train/validation split and I want to keep some data unseen by the model to test on at the end. Then I want to add         
+   additional constraints to the Inception time model that would mimic real-world scenarios. I want to test two types of constraints, time constraints (inference time, in-flight      
+   training) and sample constraints (training on less overall data). I then want to show how an extreme learning machine works with similar constraints. The goal is to find out which 
+   learning model would be better for an in-flight use case on an actual UAV. Here is what should be changed. The dataloader should allow for lower total number of samples when       
+   requested, and there shouldn't be any inception-specific terminology. The inception time model should be modified to work with a train/validate/test split rather than just         
+   train/validate. The line of sight model should use the same dataloader as the other models even if it doesn't use some of the features and doesn't do any training. The extreme     
+   learning machine should be able to work in a similar way to the inception model, only it won't have epochs obviously. There should be a new main driver file that exectures line of 
+   sight path loss and executes inception and ELM with varying number of samples and epochs (time component for inception). Relevant data should be saved to a learning_report.md file 
+   and relevat graphs should be saved as png files and imported in the learning_report.md file.

@@ -215,6 +215,12 @@ categories:
         alias_list:
           - csi_sinr
 
+      - name: Is_Connected
+        categorical: true
+        description: A boolean flag indicating whether the device has an active data connection to the network.
+        alias_list:
+          - is_connected
+
 
   - category: Radio Performance
     cols:
@@ -253,12 +259,6 @@ categories:
 
   - category: Connection Status
     cols:
-      - name: Is_Connected
-        categorical: true
-        description: A boolean flag indicating whether the device has an active data connection to the network.
-        alias_list:
-          - is_connected
-          
       - name: ASU
         categorical: false
         extended: Arbitrary Strength Unit
@@ -271,6 +271,13 @@ categories:
         description: A coarse signal strength level (typically 0–4) as reported by the device operating system.
         alias_list:
           - level
+
+      - name: PCI
+        categorical: true
+        extended: Physical Cell Identity
+        description: A number (0–503) used to identify a cell at the physical layer to assist in cell selection and handover.
+        alias_list:
+          - pci
 
   - category: Network Identity
     cols:
@@ -310,13 +317,6 @@ categories:
         description: A numeric identifier that distinguishes a specific cell within a location area or tracking area.
         alias_list:
           - ci
-
-      - name: PCI
-        categorical: true
-        extended: Physical Cell Identity
-        description: A number (0–503) used to identify a cell at the physical layer to assist in cell selection and handover.
-        alias_list:
-          - pci
 
       - name: EARFCN
         categorical: true

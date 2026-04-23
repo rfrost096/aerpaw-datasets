@@ -1,0 +1,15 @@
+[0] Config.pm:307> INFO - This is Biber 2.19
+[0] Config.pm:310> INFO - Logfile is 'build/final_exam_presentation.blg'
+[59] biber:340> INFO - === Sun Apr 19, 2026, 17:26:49
+[70] Biber.pm:419> INFO - Reading 'build/final_exam_presentation.bcf'
+[125] Biber.pm:979> INFO - Found 6 citekeys in bib section 0
+[136] Biber.pm:4419> INFO - Processing section 0
+[144] Biber.pm:4610> INFO - Looking for bibtex file 'references.bib' for section 0
+[145] bibtex.pm:1713> INFO - LaTeX decoding ...
+[149] bibtex.pm:1519> INFO - Found BibTeX data source 'references.bib'
+[204] UCollate.pm:68> INFO - Overriding locale 'en-US' defaults 'variable = shifted' with 'variable = non-ignorable'
+[204] UCollate.pm:68> INFO - Overriding locale 'en-US' defaults 'normalization = NFD' with 'normalization = prenormalized'
+[204] Biber.pm:4239> INFO - Sorting list 'none/global//global/global' of type 'entry' with template 'none' and locale 'en-US'
+[204] Biber.pm:4245> INFO - No sort tailoring available for locale 'en-US'
+[210] bbl.pm:660> INFO - Writing 'build/final_exam_presentation.bbl' with encoding 'UTF-8'
+[212] bbl.pm:763> INFO - Output to build/final_exam_presentation.bbl
